@@ -1,0 +1,68 @@
+# TEMPLATE: customize for client
+# ------------------------------------------------------------------------
+# Pipeline d'entraînement générique : data_prep → train → evaluate →
+# register_model. Le YAML orchestre uniquement l'enchaînement des
+# composants ; toute la logique ML vit dans components/*/src/main.py.
+#
+# Référence Microsoft officielle :
+# https://learn.microsoft.com/azure/machine-learning/how-to-create-component-pipelines-cli
+#
+# Soumission :
+#   az ml job create --file ml/pipelines/training-pipeline.yml \
+#     --resource-group <rg> --workspace-name <workspace>
+$schema: https://azuremlschemas.azureedge.net/latest/pipelineJob.schema.json
+type: pipeline
+display_name: training-pipeline
+description: "SAMPLE — pipeline d'entraînement de bout en bout (données d'exemple)."
+
+# TEMPLATE: optional — compute par défaut du pipeline ; peut être surchargé
+# par composant. Retirer pour laisser Azure ML utiliser un compute serverless.
+settings:
+  default_compute: azureml:cpu-cluster
+
+inputs:
+  raw_data:
+    type: uri_folder
+    path: azureml:sample-training-data@latest
+  test_size: 0.2
+  n_estimators: 100
+  model_name: ml-project-model
+  accuracy_threshold: 0.6
+
+jobs:
+  data_prep_job:
+    type: command
+    component: ../../components/data_prep/component.yml
+    inputs:
+      raw_data: ${{parent.inputs.raw_data}}
+      test_size: ${{parent.inputs.test_size}}
+    outputs:
+      train_data:
+      test_data:
+
+  train_job:
+    type: command
+    component: ../../components/train/component.yml
+    inputs:
+      train_data: ${{parent.jobs.data_prep_job.outputs.train_data}}
+      n_estimators: ${{parent.inputs.n_estimators}}
+    outputs:
+      model_output:
+
+  evaluate_job:
+    type: command
+    component: ../../components/evaluate/component.yml
+    inputs:
+      model_input: ${{parent.jobs.train_job.outputs.model_output}}
+      test_data: ${{parent.jobs.data_prep_job.outputs.test_data}}
+    outputs:
+      evaluation_report:
+
+  register_model_job:
+    type: command
+    component: ../../components/register_model/component.yml
+    inputs:
+      model_input: ${{parent.jobs.train_job.outputs.model_output}}
+      evaluation_report: ${{parent.jobs.evaluate_job.outputs.evaluation_report}}
+      model_name: ${{parent.inputs.model_name}}
+      accuracy_threshold: ${{parent.inputs.accuracy_threshold}}

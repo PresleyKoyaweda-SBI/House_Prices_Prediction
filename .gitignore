@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv
+*.egg-info/
+dist/
+build/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+
+# IDE
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# ML (sorties locales — ne pas confondre avec ml/ et sample_data/, qui sont versionnés)
+mlruns/
+mlflow.db
+.azureml/
+outputs/
+logs/
+
+# Terraform
+# .terraform.lock.hcl N'EST PAS ignoré : il doit être versionné pour garantir
+# des versions de providers reproductibles entre postes et CI (recommandation
+# officielle HashiCorp).
+.terraform/
+*.tfstate
+*.tfstate.*
+backup-before-destroy.json
+
+# Config réelle du backend distant (contient des noms de ressources
+# spécifiques au client) — seuls les *.hcl.example sont versionnés.
+environments/backend-*.hcl
+!environments/backend-*.hcl.example

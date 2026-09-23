@@ -1,0 +1,28 @@
+# TEMPLATE: do not modify unless architecture requires it
+# ------------------------------------------------------------------------
+# Environnement Azure ML CLI v2 personnalisé (conda + image de base gérée
+# par Microsoft), référencé par nom (azureml:ml-project-training-env@latest)
+# depuis chaque components/*/component.yml. C'est le choix par défaut de
+# ce starter kit : le catalogue d'environnements curated Microsoft (ex:
+# AzureML-sklearn-1.5-ubuntu20.04-py38-cpu) varie selon l'abonnement/la
+# région/le tenant et son contenu exact (versions, SDK inclus) n'est pas
+# garanti — un environnement custom versionné dans ce repo élimine cette
+# dépendance externe. Un environnement curated reste utilisable en
+# alternative si son contenu est vérifié disponible dans le workspace
+# cible (voir docs/CUSTOMIZATION_GUIDE.md, point 13).
+#
+# Référence Microsoft officielle :
+# https://learn.microsoft.com/azure/machine-learning/how-to-manage-environments-v2
+#
+# À enregistrer une fois par workspace avant le premier job, et à nouveau
+# après toute modification de conda.yml (chaque version est immuable côté
+# Azure ML — pas de `version:` fixe ici pour que la CLI en génère une
+# nouvelle automatiquement à chaque enregistrement ; les component.yml
+# référencent toujours @latest) :
+#   az ml environment create --file ml/environments/training-environment.yml \
+#     --resource-group <rg> --workspace-name <workspace>
+$schema: https://azuremlschemas.azureedge.net/latest/environment.schema.json
+name: ml-project-training-env
+description: "Environnement d'entraînement générique (scikit-learn + MLflow) — TEMPLATE: customize for client"
+image: mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04:latest
+conda_file: conda.yml

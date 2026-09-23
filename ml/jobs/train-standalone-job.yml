@@ -1,0 +1,37 @@
+# TEMPLATE: optional
+# ------------------------------------------------------------------------
+# Exemple de job autonome (hors pipeline) — utile pour itérer rapidement
+# sur le composant train seul, sans exécuter tout le pipeline.
+#
+# Référence Microsoft officielle :
+# https://learn.microsoft.com/azure/machine-learning/how-to-train-model
+#
+# Soumission :
+#   az ml job create --file ml/jobs/train-standalone-job.yml \
+#     --resource-group <rg> --workspace-name <workspace>
+$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
+type: command
+display_name: train-standalone-job
+description: "SAMPLE — exécution isolée du composant train, hors pipeline."
+
+code: ../../components/train/src
+
+# TEMPLATE: optional
+environment: azureml:ml-project-training-env@latest
+compute: azureml:cpu-cluster
+
+inputs:
+  train_data:
+    type: uri_folder
+    path: azureml:sample-training-data@latest
+  n_estimators: 100
+
+outputs:
+  model_output:
+    type: mlflow_model
+
+command: >-
+  python main.py
+  --train_data ${{inputs.train_data}}
+  --n_estimators ${{inputs.n_estimators}}
+  --model_output ${{outputs.model_output}}

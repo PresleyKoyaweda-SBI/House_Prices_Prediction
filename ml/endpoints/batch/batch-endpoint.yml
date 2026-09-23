@@ -1,0 +1,14 @@
+# TEMPLATE: optional
+# ------------------------------------------------------------------------
+# Exemple d'endpoint batch (inférence différée sur de gros volumes).
+#
+# Référence Microsoft officielle :
+# https://learn.microsoft.com/azure/machine-learning/how-to-use-batch-endpoint
+#
+# Création :
+#   az ml batch-endpoint create --file ml/endpoints/batch/batch-endpoint.yml \
+#     --resource-group <rg> --workspace-name <workspace>
+$schema: https://azuremlschemas.azureedge.net/latest/batchEndpoint.schema.json
+name: ml-project-batch-endpoint
+description: "SAMPLE — endpoint batch pour inférence différée."
+auth_mode: aad_token

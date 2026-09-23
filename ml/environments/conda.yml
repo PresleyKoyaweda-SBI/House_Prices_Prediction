@@ -1,0 +1,30 @@
+name: ml-project-training
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      # Aligné sur pyproject.toml (pip-audit : mlflow 2.16.2 concerné par de
+      # nombreux CVE, corrigés à partir de 3.15.0 ; épinglé exactement, c'est
+      # le plafond mlflow-skinny<=3.15.0 de azureml-mlflow==1.62.0.post6).
+      - mlflow==3.15.0
+      # Aligné sur pyproject.toml — 1.57.* exige azure-storage-blob<=12.19.0,
+      # incompatible avec azure-storage-blob==12.22.* (voir pyproject.toml).
+      - azureml-mlflow==1.62.*
+      - scikit-learn==1.5.*
+      - pandas==2.2.*
+      # Épinglé exactement (pas de wildcard) : le correctif de PYSEC-2026-113
+      # (pip-audit, 17.0.0 concerné) n'arrive qu'à 23.0.1 — "23.0.*"
+      # résoudrait potentiellement vers 23.0.0, sans le correctif.
+      - pyarrow==23.0.1
+      - numpy==1.26.*
+      # azure-ai-ml==1.19.* est trop ancien : son code interne importe un
+      # symbole privé (marshmallow.fields._T) retiré des versions récentes
+      # de marshmallow, malgré une contrainte déclarée marshmallow<4.0.0
+      # théoriquement satisfaite — ImportError constaté sur un build réel
+      # Azure ML. 1.34.* est la version vérifiée compatible (utilisée par
+      # cet environnement de développement).
+      - azure-ai-ml==1.34.*
+      - azure-identity==1.25.*
+      - marshmallow<4.0.0

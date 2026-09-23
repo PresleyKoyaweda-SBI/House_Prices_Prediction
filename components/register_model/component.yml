@@ -1,0 +1,44 @@
+# TEMPLATE: customize for client
+# ------------------------------------------------------------------------
+# Composant Azure ML CLI v2 — enregistrement conditionnel du modèle.
+# Une seule responsabilité : enregistrer le modèle dans le Model Registry
+# Azure ML si (et seulement si) il satisfait un seuil de métrique minimal.
+#
+# Référence Microsoft officielle :
+# https://learn.microsoft.com/azure/machine-learning/how-to-manage-models
+$schema: https://azuremlschemas.azureedge.net/latest/commandComponent.schema.json
+name: register_model
+display_name: "Enregistrement du modèle"
+version: 1
+type: command
+description: >-
+  SAMPLE — enregistre le modèle dans le Model Registry Azure ML uniquement
+  si sa métrique d'évaluation dépasse un seuil configurable (gating).
+
+inputs:
+  model_input:
+    type: mlflow_model
+    description: "Modèle entraîné (sortie de train)."
+  evaluation_report:
+    type: uri_folder
+    description: "Rapport d'évaluation (sortie de evaluate)."
+  model_name:
+    type: string
+    description: "Nom sous lequel enregistrer le modèle dans le registre."
+    default: ml-project-model
+  accuracy_threshold:
+    type: number
+    description: "SAMPLE — seuil minimal d'accuracy requis pour l'enregistrement."
+    default: 0.6
+
+code: ./src
+
+# TEMPLATE: optional
+environment: azureml:ml-project-training-env@latest
+
+command: >-
+  python main.py
+  --model_input ${{inputs.model_input}}
+  --evaluation_report ${{inputs.evaluation_report}}
+  --model_name ${{inputs.model_name}}
+  --accuracy_threshold ${{inputs.accuracy_threshold}}

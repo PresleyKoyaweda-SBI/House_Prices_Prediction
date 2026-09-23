@@ -1,0 +1,50 @@
+# ============================================================================
+# Terraform Variables - Exemple de configuration
+# ============================================================================
+# Copier ce fichier en terraform.tfvars et adapter les valeurs
+# NE PAS versionner terraform.tfvars (contient des infos sensibles)
+
+# ============================================================================
+# CONFIGURATION PRINCIPALE
+# ============================================================================
+
+# Région Azure (canadacentral, eastus, westeurope, etc)
+location = "canadacentral"
+
+# Nom du projet (kebab-case : minuscules, chiffres, tirets)
+# TEMPLATE: customize for client
+project_name = "mon-projet-ml"
+
+# Environnement (dev, staging, prod)
+environment = "dev"
+
+# ============================================================================
+# TAGS - Balises appliquées à toutes les ressources
+# ============================================================================
+
+tags = {
+  ManagedBy   = "Terraform"
+  CostCenter  = "AI"
+  Department  = "DataScience"
+  Owner       = "your-team"
+  Environment = "development"
+}
+
+# ============================================================================
+# STORAGE ACCOUNT - Configuration (optionnel)
+# ============================================================================
+
+storage_account_config = {
+  account_tier             = "Standard"  # Standard ou Premium
+  account_replication_type = "LRS"       # LRS (dev), GRS (prod)
+  access_tier              = "Hot"       # Hot ou Cool
+}
+
+# ============================================================================
+# CONTAINER REGISTRY - Configuration (optionnel)
+# ============================================================================
+
+container_registry_config = {
+  sku           = "Basic" # Basic (dev), Standard ou Premium (prod)
+  admin_enabled = false   # Managed Identity suffit (rôle AcrPull) — TEMPLATE: optional
+}

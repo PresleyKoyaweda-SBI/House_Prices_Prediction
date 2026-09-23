@@ -1,0 +1,37 @@
+# TEMPLATE: customize for client
+# ------------------------------------------------------------------------
+# Composant Azure ML CLI v2 — évaluation du modèle.
+# Une seule responsabilité : calculer les métriques du modèle sur le jeu de
+# test et écrire un rapport d'évaluation exploitable par register_model.
+$schema: https://azuremlschemas.azureedge.net/latest/commandComponent.schema.json
+name: evaluate
+display_name: "Évaluation du modèle"
+version: 1
+type: command
+description: >-
+  SAMPLE — calcule des métriques de classification sur le jeu de test et
+  écrit un rapport JSON.
+
+inputs:
+  model_input:
+    type: mlflow_model
+    description: "Modèle entraîné (sortie de train)."
+  test_data:
+    type: uri_folder
+    description: "Jeu de test (sortie de data_prep)."
+
+outputs:
+  evaluation_report:
+    type: uri_folder
+    description: "Rapport d'évaluation (metrics.json)."
+
+code: ./src
+
+# TEMPLATE: optional
+environment: azureml:ml-project-training-env@latest
+
+command: >-
+  python main.py
+  --model_input ${{inputs.model_input}}
+  --test_data ${{inputs.test_data}}
+  --evaluation_report ${{outputs.evaluation_report}}

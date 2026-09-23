@@ -1,0 +1,21 @@
+{
+  "name": "Azure ML Starter Kit",
+  "image": "mcr.microsoft.com/devcontainers/python:0-3.11",
+  "features": {
+    "ghcr.io/devcontainers/features/terraform:1": {},
+    "ghcr.io/devcontainers/features/azure-cli:1": {}
+  },
+  "postCreateCommand": "pip install -e '.[dev,notebooks]' && az extension add -n ml -y",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        "hashicorp.terraform",
+        "redhat.vscode-yaml",
+        "ms-toolsai.jupyter"
+      ]
+    }
+  }
+}

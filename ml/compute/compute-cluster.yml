@@ -1,0 +1,42 @@
+# TEMPLATE: optional
+# ------------------------------------------------------------------------
+# Exemple de cluster de calcul Azure ML (AmlCompute) avec autoscaling et
+# arrêt automatique à zéro nœud. Optionnel : un compute serverless
+# (`az ml job create` sans compute déclaré, ou `compute: azureml:serverless`
+# dans un job/pipeline) évite de gérer un cluster dédié pour la plupart des
+# charges de travail d'entraînement ponctuelles.
+#
+# Référence Microsoft officielle :
+# https://learn.microsoft.com/azure/machine-learning/how-to-create-attach-compute-cluster
+#
+# Création :
+#   az ml compute create --file ml/compute/compute-cluster.yml \
+#     --resource-group <rg> --workspace-name <workspace>
+#
+# `identity: system_assigned` est requis quand le Container Registry n'a
+# pas l'admin user activé (défaut de ce starter kit — voir
+# infrastructure/terraform/container_registry.tf) : AmlCompute pull les
+# images Docker avec SA PROPRE identité managée, pas celle du workspace
+# (constaté sur un test réel — l'AcrPull accordé uniquement à l'identité
+# du workspace ne suffit pas). Après création, accorder à cette identité :
+#   1. AcrPull sur le Container Registry (pull des images)
+#   2. AzureML Data Scientist sur le workspace (le code des composants,
+#      ex. register_model, appelle le SDK azure-ai-ml — MLClient — avec
+#      cette même identité, pas celle du workspace)
+# Une seule fois par cluster, voir README — Quick Start :
+#   az role assignment create --assignee-object-id <principal_id du compute> \
+#     --assignee-principal-type ServicePrincipal --role AcrPull \
+#     --scope <id de l'ACR>
+#   az role assignment create --assignee-object-id <principal_id du compute> \
+#     --assignee-principal-type ServicePrincipal --role "AzureML Data Scientist" \
+#     --scope <id du workspace>
+$schema: https://azuremlschemas.azureedge.net/latest/amlCompute.schema.json
+name: cpu-cluster
+type: amlcompute
+# TEMPLATE: customize for client — taille de VM adaptée à la charge réelle
+size: Standard_DS3_v2
+min_instances: 0
+max_instances: 4
+idle_time_before_scale_down: 300
+identity:
+  type: system_assigned

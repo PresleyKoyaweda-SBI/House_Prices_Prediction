@@ -1,0 +1,16 @@
+# TEMPLATE: customize for client
+# ------------------------------------------------------------------------
+# Exemple d'enregistrement d'un data asset Azure ML CLI v2 versionné.
+# Référence Microsoft officielle :
+# https://learn.microsoft.com/azure/machine-learning/how-to-create-data-assets
+#
+# Création :
+#   az ml data create --file ml/data/sample-data-asset.yml \
+#     --resource-group <rg> --workspace-name <workspace>
+$schema: https://azuremlschemas.azureedge.net/latest/data.schema.json
+name: sample-training-data
+version: 1
+type: uri_folder
+description: "SAMPLE — remplacer par la source de données réelle du client (voir docs/CUSTOMIZATION_GUIDE.md)"
+# TEMPLATE: customize for client — chemin local, Blob Storage (azureml://...) ou HTTP(S)
+path: ../../sample_data/

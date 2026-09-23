@@ -1,0 +1,138 @@
+# CD — promotion dev → staging → prod en une seule chaîne, déclenchée après
+# un CI vert sur main (ou manuellement). La progression staging → prod n'est
+# jamais automatique : les environnements GitHub "staging" et "production"
+# doivent avoir une règle d'approbation manuelle (Settings > Environments)
+# qui met le job en pause jusqu'à validation humaine.
+#
+# Authentification Azure : OIDC fédéré (azure/login avec client-id/tenant-id/
+# subscription-id) — aucun secret client stocké dans le dépôt ou les secrets
+# GitHub. Voir docs/SECURITY.md.
+#
+# State Terraform : backend distant (Azure Storage), obligatoire dès qu'une
+# CI est impliquée — sans ça, chaque run partirait d'un state vide sur un
+# runner éphémère et recréerait des ressources en doublon. Storage account
+# provisionné une seule fois via `make bootstrap-tfstate` (voir
+# infrastructure/terraform/README.md) ; son nom (pas un secret en soi) est
+# stocké en variable de repo GitHub (Settings > Secrets and variables >
+# Actions > Variables), pas en secret : TF_STATE_RESOURCE_GROUP,
+# TF_STATE_STORAGE_ACCOUNT, TF_STATE_CONTAINER. Authentification au backend
+# par Azure AD (`use_azuread_auth=true`, même identité OIDC que azure/login
+# ci-dessous) — aucune clé de storage account requise.
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-dev:
+    name: Déployer — dev
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: dev
+    defaults:
+      run:
+        working-directory: infrastructure/terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" \
+            -backend-config="key=dev.tfstate" \
+            -backend-config="use_azuread_auth=true"
+      - run: terraform apply -auto-approve -var-file=../../environments/dev.tfvars
+
+  validate-dev:
+    name: Valider — dev (smoke tests)
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]"
+      - name: Tests smoke
+        run: pytest tests/smoke/ -v
+        env:
+          ONLINE_ENDPOINT_URL: ${{ secrets.DEV_ONLINE_ENDPOINT_URL }}
+          ONLINE_ENDPOINT_KEY: ${{ secrets.DEV_ONLINE_ENDPOINT_KEY }}
+
+  deploy-staging:
+    name: Déployer — staging
+    needs: validate-dev
+    runs-on: ubuntu-latest
+    # Règle d'approbation manuelle requise sur cet environnement
+    # (Settings > Environments > staging > Required reviewers).
+    environment: staging
+    defaults:
+      run:
+        working-directory: infrastructure/terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" \
+            -backend-config="key=staging.tfstate" \
+            -backend-config="use_azuread_auth=true"
+      - run: terraform apply -auto-approve -var-file=../../environments/staging.tfvars
+
+  deploy-prod:
+    name: Déployer — production
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    # Règle d'approbation manuelle requise sur cet environnement
+    # (Settings > Environments > production > Required reviewers) —
+    # jamais de déploiement automatique en production sans validation humaine.
+    environment: production
+    defaults:
+      run:
+        working-directory: infrastructure/terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" \
+            -backend-config="key=prod.tfstate" \
+            -backend-config="use_azuread_auth=true"
+      - run: terraform apply -auto-approve -var-file=../../environments/prod.tfvars

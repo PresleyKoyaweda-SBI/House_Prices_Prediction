@@ -1,0 +1,41 @@
+# TEMPLATE: customize for client
+# ------------------------------------------------------------------------
+# Composant Azure ML CLI v2 — entraînement du modèle.
+# Une seule responsabilité : entraîner un modèle sur le jeu d'entraînement
+# et le journaliser via MLflow (format autolog, réutilisable par register_model).
+#
+# Référence Microsoft officielle :
+# https://learn.microsoft.com/azure/machine-learning/how-to-log-mlflow-models
+$schema: https://azuremlschemas.azureedge.net/latest/commandComponent.schema.json
+name: train
+display_name: "Entraînement du modèle"
+version: 1
+type: command
+description: >-
+  SAMPLE — entraîne un modèle scikit-learn sur le jeu d'entraînement et
+  journalise le modèle au format MLflow.
+
+inputs:
+  train_data:
+    type: uri_folder
+    description: "Jeu d'entraînement (sortie de data_prep)."
+  n_estimators:
+    type: integer
+    description: "Hyperparamètre exemple (nombre d'arbres)."
+    default: 100
+
+outputs:
+  model_output:
+    type: mlflow_model
+    description: "Modèle entraîné, au format MLflow."
+
+code: ./src
+
+# TEMPLATE: optional
+environment: azureml:ml-project-training-env@latest
+
+command: >-
+  python main.py
+  --train_data ${{inputs.train_data}}
+  --n_estimators ${{inputs.n_estimators}}
+  --model_output ${{outputs.model_output}}

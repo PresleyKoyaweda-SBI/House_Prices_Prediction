@@ -1,0 +1,20 @@
+# TEMPLATE: optional
+# ------------------------------------------------------------------------
+# Exemple d'enregistrement manuel d'un modèle déjà entraîné localement
+# (ex: format MLflow produit par `az ml job download`). En production, le
+# composant components/register_model est le mécanisme recommandé
+# (enregistrement automatique et conditionnel depuis le pipeline).
+#
+# Référence Microsoft officielle :
+# https://learn.microsoft.com/azure/machine-learning/how-to-manage-models
+#
+# Enregistrement :
+#   az ml model create --file ml/model/model.yml \
+#     --resource-group <rg> --workspace-name <workspace>
+$schema: https://azuremlschemas.azureedge.net/latest/model.schema.json
+name: ml-project-model
+version: 1
+type: mlflow_model
+description: "SAMPLE — modèle enregistré manuellement depuis un dossier local."
+# TEMPLATE: customize for client — chemin local vers un modèle MLflow déjà entraîné
+path: ./local-model

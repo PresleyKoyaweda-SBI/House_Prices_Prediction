@@ -1,0 +1,53 @@
+# TEMPLATE: customize for client
+# ------------------------------------------------------------------------
+# Composant Azure ML CLI v2 — préparation des données.
+# Une seule responsabilité : lire les données brutes, nettoyer/scinder,
+# écrire un jeu d'entraînement et un jeu de test.
+#
+# Référence Microsoft officielle :
+# https://learn.microsoft.com/azure/machine-learning/how-to-create-component-pipelines-cli
+#
+# Enregistrement (optionnel, sinon référencé directement depuis le pipeline) :
+#   az ml component create --file components/data_prep/component.yml \
+#     --resource-group <rg> --workspace-name <workspace>
+$schema: https://azuremlschemas.azureedge.net/latest/commandComponent.schema.json
+name: data_prep
+display_name: "Préparation des données"
+version: 1
+type: command
+description: >-
+  SAMPLE — lit un jeu de données brut (uri_folder), effectue un nettoyage minimal
+  et une séparation train/test, puis écrit les deux jeux en sortie.
+
+inputs:
+  raw_data:
+    type: uri_folder
+    description: "Dossier contenant les données brutes (ex: sample-training-data)."
+  test_size:
+    type: number
+    description: "Proportion des données réservées au test (0 < x < 1)."
+    default: 0.2
+
+outputs:
+  train_data:
+    type: uri_folder
+    description: "Jeu d'entraînement préparé."
+  test_data:
+    type: uri_folder
+    description: "Jeu de test préparé."
+
+# TEMPLATE: do not modify unless architecture requires it — dossier de code
+# snapshotté tel quel au moment de la soumission (aucune dépendance externe
+# au dossier n'est disponible à l'exécution).
+code: ./src
+
+# TEMPLATE: optional — remplacer par ml/environments/training-environment.yml
+# si l'environnement curated ne couvre pas vos dépendances.
+environment: azureml:ml-project-training-env@latest
+
+command: >-
+  python main.py
+  --raw_data ${{inputs.raw_data}}
+  --test_size ${{inputs.test_size}}
+  --train_data ${{outputs.train_data}}
+  --test_data ${{outputs.test_data}}

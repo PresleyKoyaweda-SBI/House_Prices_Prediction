@@ -1,0 +1,15 @@
+# TEMPLATE: customize for client
+# =============================================================================
+# Configuration du backend distant (state Terraform) — environnement PROD.
+# =============================================================================
+# Voir backend-dev.hcl.example pour le détail des champs. Même storage
+# account de state que les autres environnements, seule la `key` (nom du
+# blob) change — un state par environnement, jamais partagé.
+#
+# Usage : make tf-init ENV=prod
+
+resource_group_name  = "rg-tfstate-<project>"
+storage_account_name = "sttfstate<project><suffix>"
+container_name       = "tfstate"
+key                  = "<project>-prod.tfstate"
+use_azuread_auth     = true

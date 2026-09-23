@@ -1,0 +1,15 @@
+# TEMPLATE: customize for client
+# ------------------------------------------------------------------------
+# Exemple de déploiement sur l'endpoint en ligne ci-dessus. Référence un
+# modèle déjà enregistré dans le Model Registry (voir components/register_model
+# ou ml/model/model.yml).
+#
+# Création (après création de l'endpoint) :
+#   az ml online-deployment create --file ml/endpoints/online/online-deployment.yml \
+#     --resource-group <rg> --workspace-name <workspace> --all-traffic
+$schema: https://azuremlschemas.azureedge.net/latest/managedOnlineDeployment.schema.json
+name: blue
+endpoint_name: ml-project-endpoint
+model: azureml:ml-project-model@latest
+instance_type: Standard_DS2_v2
+instance_count: 1
