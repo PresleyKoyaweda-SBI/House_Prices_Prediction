@@ -13,21 +13,25 @@
 $schema: https://azuremlschemas.azureedge.net/latest/pipelineJob.schema.json
 type: pipeline
 display_name: training-pipeline
-description: "SAMPLE — pipeline d'entraînement de bout en bout (données d'exemple)."
+description: "Pipeline d'entraînement de bout en bout — valeur médiane des logements par district (California Housing)."
 
-# TEMPLATE: optional — compute par défaut du pipeline ; peut être surchargé
-# par composant. Retirer pour laisser Azure ML utiliser un compute serverless.
+# Compute par défaut du pipeline (voir ml/compute/compute-cluster.yml). Je
+# garde un cluster dédié plutôt que le serverless : le endpoint batch
+# (batch-deployment.yml) et train-standalone-job.yml en ont besoin de toute
+# façon, et register_model s'authentifie avec l'identité managée du cluster
+# (rôles AcrPull et AzureML Data Scientist, voir README). Retirer cette clé
+# pour passer en serverless imposerait de revoir cette authentification.
 settings:
   default_compute: azureml:cpu-cluster
 
 inputs:
   raw_data:
     type: uri_folder
-    path: azureml:sample-training-data@latest
+    path: azureml:house-prices-raw-data@latest
   test_size: 0.2
-  n_estimators: 100
-  model_name: ml-project-model
-  accuracy_threshold: 0.6
+  model_name: house-price-model
+  # RMSE maximale acceptée : 0.5 = 50 000 $ d'écart typique par district.
+  rmse_threshold: 0.5
 
 jobs:
   data_prep_job:
@@ -45,7 +49,6 @@ jobs:
     component: ../../components/train/component.yml
     inputs:
       train_data: ${{parent.jobs.data_prep_job.outputs.train_data}}
-      n_estimators: ${{parent.inputs.n_estimators}}
     outputs:
       model_output:
 
@@ -65,4 +68,4 @@ jobs:
       model_input: ${{parent.jobs.train_job.outputs.model_output}}
       evaluation_report: ${{parent.jobs.evaluate_job.outputs.evaluation_report}}
       model_name: ${{parent.inputs.model_name}}
-      accuracy_threshold: ${{parent.inputs.accuracy_threshold}}
+      rmse_threshold: ${{parent.inputs.rmse_threshold}}

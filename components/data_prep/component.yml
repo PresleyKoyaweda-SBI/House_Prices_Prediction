@@ -16,13 +16,13 @@ display_name: "Préparation des données"
 version: 1
 type: command
 description: >-
-  SAMPLE — lit un jeu de données brut (uri_folder), effectue un nettoyage minimal
-  et une séparation train/test, puis écrit les deux jeux en sortie.
+  Lit le CSV California Housing (un district par ligne), vérifie le schéma,
+  retire les lignes sans cible et les doublons, puis sépare train et test.
 
 inputs:
   raw_data:
     type: uri_folder
-    description: "Dossier contenant les données brutes (ex: sample-training-data)."
+    description: "Dossier contenant california_housing.csv (data asset house-prices-raw-data)."
   test_size:
     type: number
     description: "Proportion des données réservées au test (0 < x < 1)."

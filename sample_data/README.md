@@ -1,11 +1,25 @@
-# Données d'exemple (SAMPLE)
+# Données : California Housing
 
-`training_data.csv` est un jeu de données synthétique minimal (20 lignes,
-3 features numériques + une cible binaire `target`) utilisé uniquement pour
-faire tourner le pipeline `ml/pipelines/training-pipeline.yml` de bout en bout
-sans dépendre d'une source de données client.
+`california_housing.csv` contient le jeu de données **California Housing** (recensement américain
+de 1990), exporté depuis scikit-learn (`sklearn.datasets.fetch_california_housing`) par
+`notebooks/02_Data_Generation.ipynb`.
 
-**SAMPLE — à supprimer.** Ce dossier n'a aucune valeur métier. Dès qu'une
-vraie source de données est branchée (voir `docs/CUSTOMIZATION_GUIDE.md`,
-section « Source de données »), supprimez ce dossier et mettez à jour
-`ml/data/sample-data-asset.yml` en conséquence.
+- **20 640 lignes**, une par district (*block group* du recensement), pas une par maison ;
+- **8 variables** : `MedInc`, `HouseAge`, `AveRooms`, `AveBedrms`, `Population`, `AveOccup`,
+  `Latitude`, `Longitude` ;
+- **cible** : `MedHouseVal`, valeur médiane des logements du district, en centaines de milliers
+  de dollars, plafonnée à 5,00001 (500 000 $).
+
+Ce dossier est enregistré comme data asset Azure ML `house-prices-raw-data`
+(`ml/data/sample-data-asset.yml`) et lu par le composant `data_prep`, qui attend **un seul**
+fichier CSV dans le dossier.
+
+Pour régénérer le fichier :
+
+```python
+from sklearn.datasets import fetch_california_housing
+
+fetch_california_housing(as_frame=True).frame.to_csv(
+    "sample_data/california_housing.csv", index=False
+)
+```

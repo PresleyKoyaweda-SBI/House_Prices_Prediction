@@ -12,7 +12,7 @@
 #   az ml model create --file ml/model/model.yml \
 #     --resource-group <rg> --workspace-name <workspace>
 $schema: https://azuremlschemas.azureedge.net/latest/model.schema.json
-name: ml-project-model
+name: house-price-model
 version: 1
 type: mlflow_model
 description: "SAMPLE — modèle enregistré manuellement depuis un dossier local."

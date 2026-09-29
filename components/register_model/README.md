@@ -1,11 +1,14 @@
 # Composant `register_model`
 
-**SAMPLE — logique de gating (seuil d'accuracy) à adapter.**
+Lit le rapport produit par `evaluate` et n'enregistre le modèle dans le Model Registry Azure ML
+que si sa **RMSE** (*Root Mean Squared Error*) est **inférieure ou égale** à `rmse_threshold`.
+Pour une erreur, plus bas = meilleur : le seuil est un maximum, pas un minimum.
 
-Lit le rapport d'évaluation produit par `evaluate` et n'enregistre le
-modèle dans le Model Registry Azure ML que si sa métrique dépasse
-`accuracy_threshold`. Utilise l'identité managée du compute — aucun secret
-n'est requis.
+Le seuil par défaut, **0,5**, correspond à une erreur typique de **50 000 $** sur la valeur
+médiane d'un district : au-delà, l'estimation n'est plus assez fiable pour comparer et prioriser
+des zones. Toutes les métriques du rapport sont copiées dans les propriétés du modèle enregistré.
+
+Utilise l'identité managée du compute — aucun secret n'est requis.
 
 ## Entrées
 
@@ -13,17 +16,11 @@ n'est requis.
 |---|---|---|
 | `model_input` | `mlflow_model` | Modèle entraîné |
 | `evaluation_report` | `uri_folder` | Rapport d'évaluation (`metrics.json`) |
-| `model_name` | `string` | Nom du modèle dans le registre |
-| `accuracy_threshold` | `number` | Seuil minimal d'accuracy (SAMPLE, défaut : 0.6) |
+| `model_name` | `string` | Nom du modèle dans le registre (défaut : `house-price-model`) |
+| `rmse_threshold` | `number` | RMSE maximale acceptée, en centaines de milliers de $ (défaut : 0.5) |
 
 ## Test local
 
 ```bash
 pytest components/register_model/tests/
 ```
-
-## Personnalisation
-
-Remplacez la métrique de gating (accuracy) et le seuil par ceux définis
-avec le client. Pour un cas d'usage sans gating, supprimez simplement la
-condition dans `src/main.py`.

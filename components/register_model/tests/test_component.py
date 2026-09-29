@@ -35,7 +35,8 @@ def test_register_model_skips_below_threshold(tmp_path: Path) -> None:
 
     report_dir = tmp_path / "report"
     report_dir.mkdir()
-    (report_dir / "metrics.json").write_text(json.dumps({"accuracy": 0.3}))
+    # RMSE de 0,8 (80 000 $ d'écart typique) : au-dessus du seuil de 0,5, refusé.
+    (report_dir / "metrics.json").write_text(json.dumps({"rmse": 0.8}))
 
     result = subprocess.run(
         [
@@ -47,8 +48,8 @@ def test_register_model_skips_below_threshold(tmp_path: Path) -> None:
             str(report_dir),
             "--model_name",
             "test-model",
-            "--accuracy_threshold",
-            "0.6",
+            "--rmse_threshold",
+            "0.5",
         ],
         capture_output=True,
         text=True,
@@ -64,7 +65,8 @@ def test_register_model_registers_above_threshold(tmp_path: Path, monkeypatch) -
 
     report_dir = tmp_path / "report"
     report_dir.mkdir()
-    (report_dir / "metrics.json").write_text(json.dumps({"accuracy": 0.9}))
+    # RMSE de 0,45 : sous le seuil de 0,5, accepté.
+    (report_dir / "metrics.json").write_text(json.dumps({"rmse": 0.45, "r2": 0.84}))
 
     monkeypatch.setenv("AZUREML_ARM_SUBSCRIPTION", "fake-subscription-id")
     monkeypatch.setenv("AZUREML_ARM_RESOURCEGROUP", "fake-rg")
@@ -80,8 +82,8 @@ def test_register_model_registers_above_threshold(tmp_path: Path, monkeypatch) -
             str(report_dir),
             "--model_name",
             "test-model",
-            "--accuracy_threshold",
-            "0.6",
+            "--rmse_threshold",
+            "0.5",
         ],
     )
 
@@ -100,4 +102,4 @@ def test_register_model_registers_above_threshold(tmp_path: Path, monkeypatch) -
     fake_ml_client.models.create_or_update.assert_called_once()
     submitted_model = fake_ml_client.models.create_or_update.call_args[0][0]
     assert submitted_model.name == "test-model"
-    assert submitted_model.properties["accuracy"] == str(0.9)
+    assert submitted_model.properties["rmse"] == "0.45"

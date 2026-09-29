@@ -107,11 +107,11 @@ Key Vault) qui doit être justifiée.
 
 ## Endpoints d'inférence
 
-`ml/endpoints/online/online-endpoint.yml` utilise `auth_mode: key` par
-défaut (accès simple pour prototypage). Pour une intégration avec des
-applications internes du client, préférer `auth_mode: aad_token`
-(Microsoft Entra ID) — voir
-[authentification des endpoints en ligne](https://learn.microsoft.com/azure/machine-learning/how-to-authenticate-online-endpoint).
+`ml/endpoints/batch/batch-endpoint.yml` utilise `auth_mode: aad_token`
+(Microsoft Entra ID), seul mode accepté par les endpoints batch : aucune
+clé d'API à stocker ou à faire tourner. Invoquer l'endpoint demande un rôle
+Azure sur le workspace (ex : AzureML Data Scientist) — voir
+[autorisation des endpoints batch](https://learn.microsoft.com/azure/machine-learning/how-to-authenticate-batch-endpoint).
 
 ## Revue de sécurité avant mise en production
 

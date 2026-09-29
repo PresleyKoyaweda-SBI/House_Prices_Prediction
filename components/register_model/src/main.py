@@ -1,14 +1,13 @@
-"""SAMPLE — enregistrement conditionnel du modèle dans le Model Registry.
+"""Enregistrement conditionnel du modèle dans le Model Registry Azure ML.
 
-Lit le rapport d'évaluation produit par le composant `evaluate` et
-n'enregistre le modèle que si sa métrique dépasse un seuil (gating).
-Ce seuil et la métrique utilisée sont un exemple pédagogique — à adapter
-au cas d'usage réel du client (voir docs/CUSTOMIZATION_GUIDE.md).
+Lit le rapport d'évaluation produit par `evaluate` et n'enregistre le modèle que si sa RMSE est
+inférieure ou égale au seuil fixé (gating). Le seuil par défaut, 0,50, correspond à une erreur
+typique de 50 000 $ sur la valeur médiane d'un district : au-delà, l'estimation n'est plus assez
+fiable pour trier des zones (voir notebooks/01_Exploration.ipynb, introduction).
 
-L'enregistrement utilise le SDK Azure ML v2 (azure-ai-ml) avec les
-informations d'espace de travail injectées automatiquement par Azure ML
-dans l'environnement du job, et l'identité managée du compute pour
-l'authentification (aucun secret requis).
+L'enregistrement utilise le SDK Azure ML v2 (azure-ai-ml) avec les informations d'espace de
+travail injectées automatiquement par Azure ML dans l'environnement du job, et l'identité managée
+du compute pour l'authentification (aucun secret requis).
 """
 
 import argparse
@@ -27,7 +26,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model_input", type=str, required=True)
     parser.add_argument("--evaluation_report", type=str, required=True)
     parser.add_argument("--model_name", type=str, required=True)
-    parser.add_argument("--accuracy_threshold", type=float, required=True)
+    parser.add_argument("--rmse_threshold", type=float, required=True)
     return parser.parse_args()
 
 
@@ -36,10 +35,11 @@ def main() -> None:
 
     metrics_path = Path(args.evaluation_report) / "metrics.json"
     metrics = json.loads(metrics_path.read_text())
-    accuracy = metrics.get("accuracy", 0.0)
+    # Métrique absente = on ne peut pas juger la qualité du modèle : on refuse par prudence.
+    rmse = metrics.get("rmse", float("inf"))
 
-    if accuracy < args.accuracy_threshold:
-        print(f"Accuracy {accuracy:.4f} < seuil {args.accuracy_threshold} — modèle NON enregistré.")
+    if rmse > args.rmse_threshold:
+        print(f"RMSE {rmse:.4f} > seuil {args.rmse_threshold} — modèle NON enregistré.")
         return
 
     # TEMPLATE: do not modify unless architecture requires it — ces variables
@@ -52,12 +52,18 @@ def main() -> None:
         workspace_name=os.environ["AZUREML_ARM_WORKSPACE_NAME"],
     )
 
+    # Les métriques sont stockées comme propriétés du modèle : on les retrouve dans le registre
+    # sans avoir à rouvrir le run d'évaluation.
+    properties = {k: f"{v:.6g}" for k, v in metrics.items() if isinstance(v, int | float)}
     model = Model(
         path=args.model_input,
         name=args.model_name,
         type=AssetTypes.MLFLOW_MODEL,
-        description=f"SAMPLE — enregistré automatiquement (accuracy={accuracy:.4f}).",
-        properties={"accuracy": str(accuracy)},
+        description=(
+            f"Estimation de la valeur médiane des logements par district "
+            f"(RMSE={rmse:.4f}, soit environ {rmse * 100_000:,.0f} $ d'écart typique)."
+        ),
+        properties=properties,
     )
     registered = ml_client.models.create_or_update(model)
 

@@ -2,7 +2,7 @@
 # ------------------------------------------------------------------------
 # Composant Azure ML CLI v2 — enregistrement conditionnel du modèle.
 # Une seule responsabilité : enregistrer le modèle dans le Model Registry
-# Azure ML si (et seulement si) il satisfait un seuil de métrique minimal.
+# Azure ML si (et seulement si) sa RMSE ne dépasse pas un seuil maximal.
 #
 # Référence Microsoft officielle :
 # https://learn.microsoft.com/azure/machine-learning/how-to-manage-models
@@ -12,8 +12,8 @@ display_name: "Enregistrement du modèle"
 version: 1
 type: command
 description: >-
-  SAMPLE — enregistre le modèle dans le Model Registry Azure ML uniquement
-  si sa métrique d'évaluation dépasse un seuil configurable (gating).
+  Enregistre le modèle dans le Model Registry Azure ML uniquement si sa RMSE
+  sur le jeu de test est inférieure ou égale au seuil (gating).
 
 inputs:
   model_input:
@@ -25,11 +25,13 @@ inputs:
   model_name:
     type: string
     description: "Nom sous lequel enregistrer le modèle dans le registre."
-    default: ml-project-model
-  accuracy_threshold:
+    default: house-price-model
+  rmse_threshold:
     type: number
-    description: "SAMPLE — seuil minimal d'accuracy requis pour l'enregistrement."
-    default: 0.6
+    description: >-
+      RMSE maximale acceptée (en centaines de milliers de $). 0.5 = 50 000 $
+      d'écart typique sur la valeur médiane d'un district.
+    default: 0.5
 
 code: ./src
 
@@ -41,4 +43,4 @@ command: >-
   --model_input ${{inputs.model_input}}
   --evaluation_report ${{inputs.evaluation_report}}
   --model_name ${{inputs.model_name}}
-  --accuracy_threshold ${{inputs.accuracy_threshold}}
+  --rmse_threshold ${{inputs.rmse_threshold}}

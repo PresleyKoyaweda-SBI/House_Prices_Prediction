@@ -34,7 +34,7 @@ $ErrorActionPreference = "Stop"
 $TfDir = "infrastructure/terraform"
 $ComputeName = "cpu-cluster"
 $EnvName = "ml-project-training-env"
-$DataName = "sample-training-data"
+$DataName = "house-prices-raw-data"
 
 function Step($msg) {
     Write-Host ""

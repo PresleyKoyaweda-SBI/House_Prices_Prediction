@@ -12,14 +12,14 @@
     Azure ML. Prérequis : `make install-dev` déjà exécuté.
 
 .PARAMETER RawCsv
-    Chemin du CSV source. Défaut : sample_data/training_data.csv.
+    Chemin du CSV source. Défaut : sample_data/california_housing.csv.
 
 .EXAMPLE
     ./scripts/run-pipeline-local.ps1
     ./scripts/run-pipeline-local.ps1 -RawCsv chemin/vers/mes_donnees.csv
 #>
 param(
-    [string]$RawCsv = "sample_data/training_data.csv"
+    [string]$RawCsv = "sample_data/california_housing.csv"
 )
 
 $ErrorActionPreference = "Stop"
@@ -33,6 +33,21 @@ function Step($msg) {
     Write-Host "----------------------------------------"
 }
 
+# $ErrorActionPreference ne s'applique pas aux programmes externes (python) : sans ce contrôle,
+# un composant en échec laisserait le script continuer et afficher un faux succès.
+function Invoke-Python {
+    python @args
+    if ($LASTEXITCODE -ne 0) {
+        throw "Échec de 'python $($args[0])' (code de sortie $LASTEXITCODE)"
+    }
+}
+
+# Suivi MLflow isolé dans le dossier de travail (supprimé à la fin), sauf si un serveur de
+# suivi est déjà configuré : un dry-run local ne doit rien écrire dans le dépôt.
+if (-not $env:MLFLOW_TRACKING_URI) {
+    $env:MLFLOW_TRACKING_URI = "sqlite:///$($WorkDir.Replace('\', '/'))/mlflow.db"
+}
+
 try {
     Step "0/3 — Préparation"
     New-Item -ItemType Directory -Path "$WorkDir/raw_data" | Out-Null
@@ -40,17 +55,17 @@ try {
     Write-Host "✅ Données source : $RawCsv"
 
     Step "1/3 — data_prep"
-    python components/data_prep/src/main.py `
+    Invoke-Python components/data_prep/src/main.py `
         --raw_data "$WorkDir/raw_data" --test_size 0.2 `
         --train_data "$WorkDir/train_data" --test_data "$WorkDir/test_data"
 
     Step "2/3 — train"
-    python components/train/src/main.py `
-        --train_data "$WorkDir/train_data" --n_estimators 100 `
+    Invoke-Python components/train/src/main.py `
+        --train_data "$WorkDir/train_data" `
         --model_output "$WorkDir/model_output"
 
     Step "3/3 — evaluate"
-    python components/evaluate/src/main.py `
+    Invoke-Python components/evaluate/src/main.py `
         --model_input "$WorkDir/model_output" --test_data "$WorkDir/test_data" `
         --evaluation_report "$WorkDir/evaluation_report"
 

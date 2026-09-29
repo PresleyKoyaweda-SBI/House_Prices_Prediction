@@ -11,8 +11,8 @@ resource "azurerm_machine_learning_workspace" "aml" {
   name = "mlw-${local.resource_prefix}-${local.suffix}"
 
   # Localisation
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
+  resource_group_name = data.azurerm_resource_group.rg.name
+  location            = data.azurerm_resource_group.rg.location
 
   # Services associés (lien avec ressources de support)
 
@@ -42,7 +42,6 @@ resource "azurerm_machine_learning_workspace" "aml" {
 
   # Dépendances explicites pour ordre de création correct
   depends_on = [
-    azurerm_resource_group.rg,
     azurerm_storage_account.storage,
     azurerm_key_vault.kv,
     azurerm_container_registry.acr,
@@ -55,6 +54,11 @@ resource "azurerm_machine_learning_workspace" "aml" {
 # ============================================================================
 # Assigne les rôles nécessaires à la Managed Identity du workspace
 # pour accéder aux autres services Azure.
+#
+# Créés uniquement si var.enable_rbac_assignments = true. Sans eux (rôle
+# Contributor seul), le workspace accède au Storage Account par sa clé (datastore
+# par défaut), au Key Vault par l'access policy qu'Azure ML ajoute à sa création,
+# et à l'ACR par son compte admin (container_registry_config.admin_enabled).
 
 # =========================================================================
 # Rôle 1 : Storage Blob Data Contributor
@@ -63,6 +67,8 @@ resource "azurerm_machine_learning_workspace" "aml" {
 # (read/write sur les conteneurs datasets, models, artifacts)
 
 resource "azurerm_role_assignment" "aml_storage" {
+  count = var.enable_rbac_assignments ? 1 : 0
+
   # Portée : le Storage Account complet
   scope = azurerm_storage_account.storage.id
 
@@ -80,6 +86,8 @@ resource "azurerm_role_assignment" "aml_storage" {
 # Nécessaire pour utiliser des images Docker dans les pipelines
 
 resource "azurerm_role_assignment" "aml_acr" {
+  count = var.enable_rbac_assignments ? 1 : 0
+
   # Portée : le Container Registry complet
   scope = azurerm_container_registry.acr.id
 
@@ -97,6 +105,8 @@ resource "azurerm_role_assignment" "aml_acr" {
 # Nécessaire pour accéder aux clés API et autres secrets
 
 resource "azurerm_role_assignment" "aml_keyvault" {
+  count = var.enable_rbac_assignments ? 1 : 0
+
   # Portée : le Key Vault complet
   scope = azurerm_key_vault.kv.id
 

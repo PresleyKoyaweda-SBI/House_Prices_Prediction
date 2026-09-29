@@ -25,7 +25,7 @@ flowchart LR
     end
 
     MLW <--> Pipeline
-    RM --> EP["ml/endpoints/{online,batch}<br/>(déploiement du modèle)"]
+    RM --> EP["ml/endpoints/batch<br/>(scoring des districts en lot)"]
 ```
 
 Détails : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) ·

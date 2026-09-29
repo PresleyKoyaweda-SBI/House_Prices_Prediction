@@ -10,5 +10,6 @@
 #     --resource-group <rg> --workspace-name <workspace>
 $schema: https://azuremlschemas.azureedge.net/latest/batchEndpoint.schema.json
 name: ml-project-batch-endpoint
-description: "SAMPLE — endpoint batch pour inférence différée."
+description: "Estimation de la valeur médiane des logements de chaque district (California Housing), en lot."
+# Les endpoints batch n'acceptent que l'authentification Microsoft Entra ID.
 auth_mode: aad_token

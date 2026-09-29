@@ -10,12 +10,12 @@
 
 output "resource_group_name" {
   description = "Nom du Resource Group"
-  value       = azurerm_resource_group.rg.name
+  value       = data.azurerm_resource_group.rg.name
 }
 
 output "resource_group_id" {
   description = "ID complet du Resource Group"
-  value       = azurerm_resource_group.rg.id
+  value       = data.azurerm_resource_group.rg.id
 }
 
 # ============================================================================
@@ -142,7 +142,7 @@ output "deployment_summary" {
     project             = var.project_name
     environment         = var.environment
     location            = var.location
-    resource_group_name = azurerm_resource_group.rg.name
+    resource_group_name = data.azurerm_resource_group.rg.name
     workspace_name      = azurerm_machine_learning_workspace.aml.name
     random_suffix       = local.suffix
   }

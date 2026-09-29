@@ -31,7 +31,7 @@ done
 TF_DIR="infrastructure/terraform"
 COMPUTE_NAME="cpu-cluster"
 ENV_NAME="ml-project-training-env"
-DATA_NAME="sample-training-data"
+DATA_NAME="house-prices-raw-data"
 
 step() { echo ""; echo "▶ $1"; echo "----------------------------------------"; }
 

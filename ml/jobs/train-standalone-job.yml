@@ -23,8 +23,9 @@ compute: azureml:cpu-cluster
 inputs:
   train_data:
     type: uri_folder
-    path: azureml:sample-training-data@latest
-  n_estimators: 100
+    # Un job autonome n'a pas de data_prep : TEMPLATE: customize for client — pointer vers un
+    # dossier contenant train.csv (par exemple la sortie train_data d'un run de pipeline).
+    path: azureml:house-prices-raw-data@latest
 
 outputs:
   model_output:
@@ -33,5 +34,4 @@ outputs:
 command: >-
   python main.py
   --train_data ${{inputs.train_data}}
-  --n_estimators ${{inputs.n_estimators}}
   --model_output ${{outputs.model_output}}

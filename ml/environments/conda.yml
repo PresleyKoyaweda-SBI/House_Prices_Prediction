@@ -19,6 +19,10 @@ dependencies:
       # résoudrait potentiellement vers 23.0.0, sans le correctif.
       - pyarrow==23.0.1
       - numpy==1.26.*
+      # Modèle retenu dans notebooks/01_Exploration.ipynb, entraîné par
+      # components/train — aligné sur pyproject.toml. (lightgbm n'est utile
+      # qu'au notebook, qui tourne en local : il reste dans pyproject.toml.)
+      - xgboost==3.2.*
       # azure-ai-ml==1.19.* est trop ancien : son code interne importe un
       # symbole privé (marshmallow.fields._T) retiré des versions récentes
       # de marshmallow, malgré une contrainte déclarée marshmallow<4.0.0

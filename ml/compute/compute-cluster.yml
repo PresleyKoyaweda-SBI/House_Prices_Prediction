@@ -33,10 +33,20 @@
 $schema: https://azuremlschemas.azureedge.net/latest/amlCompute.schema.json
 name: cpu-cluster
 type: amlcompute
-# TEMPLATE: customize for client — taille de VM adaptée à la charge réelle
+# Dimensionné sur la charge mesurée (run local sur les 20 640 districts) :
+# data_prep ~8 s, train ~50 s, evaluate ~16 s, moins de 350 Mo de RAM par
+# étape. Standard_DS3_v2 (4 vCPU, 14 Go) laisse une large marge mémoire, et
+# ses 4 cœurs servent à XGBoost (n_jobs=-1 dans train). Une VM plus petite
+# n'économiserait que quelques centimes par run : le cluster est facturé à la
+# minute et redescend à zéro nœud.
 size: Standard_DS3_v2
 min_instances: 0
-max_instances: 4
+# Les étapes du pipeline s'enchaînent : un run n'occupe qu'un nœud. 2 nœuds
+# permettent un réentraînement et un scoring batch (batch-deployment.yml) en
+# parallèle, en plafonnant la dépense en cas de soumissions multiples.
+max_instances: 2
+# 5 min : le nœud reste chaud entre deux étapes du pipeline, ce qui évite de
+# payer plusieurs minutes de démarrage de VM à chaque étape.
 idle_time_before_scale_down: 300
 identity:
   type: system_assigned

@@ -8,9 +8,9 @@
 #   az ml data create --file ml/data/sample-data-asset.yml \
 #     --resource-group <rg> --workspace-name <workspace>
 $schema: https://azuremlschemas.azureedge.net/latest/data.schema.json
-name: sample-training-data
+name: house-prices-raw-data
 version: 1
 type: uri_folder
-description: "SAMPLE — remplacer par la source de données réelle du client (voir docs/CUSTOMIZATION_GUIDE.md)"
+description: "California Housing (recensement 1990) — un district par ligne : 8 variables socio-démographiques et géographiques + valeur médiane des logements (MedHouseVal)."
 # TEMPLATE: customize for client — chemin local, Blob Storage (azureml://...) ou HTTP(S)
 path: ../../sample_data/
