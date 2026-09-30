@@ -23,6 +23,17 @@ dependencies:
       # components/train — aligné sur pyproject.toml. (lightgbm n'est utile
       # qu'au notebook, qui tourne en local : il reste dans pyproject.toml.)
       - xgboost==3.2.*
+      # cloudpickle 2.x OBLIGATOIRE (ne pas monter en 3.x) : le modèle est
+      # sérialisé avec cloudpickle, et MLflow fige la version installée ici
+      # dans les dépendances du modèle. Au déploiement batch, Azure ML y ajoute
+      # azureml-dataset-runtime, dont la dépendance azureml-dataprep exige
+      # cloudpickle<3.0.0 : avec cloudpickle 3.x, pip ne trouve aucune
+      # combinaison valide et la construction de l'image de scoring échoue
+      # (constaté sur un déploiement réel). Aligné sur pyproject.toml.
+      - cloudpickle==2.2.1
+      # joblib (dépendance de scikit-learn) exige cloudpickle>=3.0 à partir de
+      # 1.6.0 : je fige la dernière version compatible avec cloudpickle 2.x.
+      - joblib==1.5.3
       # Pas de SDK Azure ML (azure-ai-ml, azure-identity) : aucun composant ne
       # l'appelle, register_model laissant Azure ML enregistrer le modèle. Le
       # SDK reste dans pyproject.toml pour les tests d'intégration et smoke,
