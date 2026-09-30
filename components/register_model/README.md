@@ -11,15 +11,18 @@ modèle seulement s'il respecte les deux seuils d'acceptabilité du notebook :
 Pour une erreur, plus bas = meilleur : chaque seuil est un maximum. Une métrique absente du rapport
 compte comme un échec.
 
-- **Modèle accepté** : il est recopié vers la sortie `model_output`. Le pipeline déclare cette
-  sortie comme modèle nommé (`house-price-model`), et c'est **Azure ML qui l'enregistre** dans le
-  registre à la fin de l'étape.
+- **Modèle accepté** : il est recopié vers la sortie `model_output`. Une fois le pipeline
+  terminé, `scripts/bootstrap-project.sh` (étape 8) l'enregistre dans le registre sous
+  `house-price-model`, **en type MLFLOW**, puis le déploie sur l'endpoint batch. L'enregistrement
+  automatique d'une sortie nommée n'est pas utilisé : il produit un modèle CUSTOM, que le
+  déploiement batch sans code refuse.
 - **Modèle refusé** : le composant échoue avec la raison du refus. Le pipeline apparaît en échec
   dans le studio, et rien n'est enregistré.
 
-Le composant n'appelle pas le SDK Azure ML : l'identité du compute n'a besoin d'**aucun rôle
-Azure**, et le projet se déploie sans Owner sur le resource group. Les métriques restent
-consultables dans le run `evaluate` du pipeline, qui a produit le modèle.
+Le composant n'appelle pas le SDK Azure ML. L'enregistrement utilise l'identité de celui qui
+lance le script (ton compte, ou l'identité GitHub en CD) : l'identité du compute n'a besoin
+d'**aucun rôle Azure**, et le projet se déploie sans Owner sur le resource group. Les métriques
+restent consultables dans le run `evaluate` du pipeline qui a produit le modèle.
 
 ## Entrées / sorties
 
@@ -29,7 +32,7 @@ consultables dans le run `evaluate` du pipeline, qui a produit le modèle.
 | `evaluation_report` | entrée | `uri_folder` | Rapport d'évaluation (`metrics.json`) |
 | `rmse_threshold` | entrée | `number` | RMSE maximale, en centaines de milliers de $ (défaut : 0.5) |
 | `mape_threshold_pct` | entrée | `number` | MAPE maximale, en % (défaut : 20) |
-| `model_output` | sortie | `mlflow_model` | Modèle accepté, enregistré par Azure ML |
+| `model_output` | sortie | `mlflow_model` | Modèle accepté, enregistré en MLFLOW par le script de bootstrap |
 
 ## Test local
 

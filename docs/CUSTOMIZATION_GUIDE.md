@@ -193,19 +193,36 @@ supplémentaire requise pour un monitoring de base.
 
 ## 19. CI/CD
 
-- Secrets GitHub à configurer (Settings > Secrets and variables > Actions) :
-  `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` (fédération
-  OIDC — voir [docs/SECURITY.md](SECURITY.md)).
-- Variables de repo GitHub (même emplacement, onglet "Variables" — ce ne
-  sont pas des secrets) : `TF_STATE_RESOURCE_GROUP`,
-  `TF_STATE_STORAGE_ACCOUNT`, `TF_STATE_CONTAINER` — valeurs affichées par
-  `make bootstrap-tfstate` (voir §21) ; et optionnellement
-  `DEV_AZURE_RESOURCE_GROUP`/`DEV_AZUREML_WORKSPACE_NAME` pour les tests
-  smoke de l'endpoint batch (ignorés tant qu'elles ne sont pas définies).
-  L'identité OIDC doit pouvoir invoquer l'endpoint (rôle
-  AzureML Data Scientist sur le workspace dev).
-- Environnements GitHub à créer (Settings > Environments) : `dev` et
-  `production` (règle d'approbation **requise**). Pas de staging.
+La CD (`.github/workflows/cd.yml` → `deploy-env.yml`) déploie dev puis prod de
+bout en bout avec `scripts/bootstrap-project.sh` : infra, entraînement,
+enregistrement du modèle, déploiement batch et test smoke. Authentification par
+**OIDC fédéré**, sans aucun mot de passe stocké dans GitHub.
+
+1. **Identité de la CD** (faisable avec le rôle Contributor) : une identité
+   managée dans le resource group, avec une *federated credential* par
+   environnement GitHub.
+   ```bash
+   export MSYS_NO_PATHCONV=1
+   RG=<resource group>; REPO=<organisation>/<repo>
+   az identity create --name id-github-cd -g $RG
+   for ENVNAME in dev production; do
+     az identity federated-credential create --identity-name id-github-cd -g $RG \
+       --name "github-$ENVNAME" --issuer https://token.actions.githubusercontent.com \
+       --subject "repo:$REPO:environment:$ENVNAME" --audiences api://AzureADTokenExchange
+   done
+   ```
+2. **Rôle de l'identité** (exige un Owner, une seule fois) : **Contributor** sur
+   le resource group, et rien d'autre. Terraform ne crée aucun role assignment
+   (mode sans RBAC), et le state est lu par la clé du storage.
+3. **Variables GitHub** (Settings > Secrets and variables > Actions > onglet
+   *Variables* — ce ne sont pas des secrets) : `AZURE_CLIENT_ID` et
+   `AZURE_TENANT_ID` (sortie de `az identity show`), `AZURE_SUBSCRIPTION_ID`,
+   `TF_STATE_RESOURCE_GROUP`, `TF_STATE_STORAGE_ACCOUNT`, `TF_STATE_CONTAINER`
+   (mêmes valeurs que `environments/backend-*.hcl`).
+4. **Environnements GitHub** (Settings > Environments) : `dev` et `production`,
+   noms exacts (ce sont eux que les federated credentials autorisent).
+   `production` : approbation **requise** et déploiement limité à la branche
+   `main`. Pas de staging.
 
 ## 20. Stratégie de promotion dev → prod
 

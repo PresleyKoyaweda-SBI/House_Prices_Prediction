@@ -35,6 +35,6 @@ dependencies:
       # 1.6.0 : je fige la dernière version compatible avec cloudpickle 2.x.
       - joblib==1.5.3
       # Pas de SDK Azure ML (azure-ai-ml, azure-identity) : aucun composant ne
-      # l'appelle, register_model laissant Azure ML enregistrer le modèle. Le
+      # l'appelle (le modèle est enregistré par scripts/bootstrap-project.sh). Le
       # SDK reste dans pyproject.toml pour les tests d'intégration et smoke,
       # qui tournent en local ou en CI.

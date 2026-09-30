@@ -20,7 +20,8 @@ exécution, OIDC fédéré en CI/CD, compte utilisateur (`az login`) en local.
 Ces rôles ne sont créés qu'avec `enable_rbac_assignments = true`, qui exige
 Owner, User Access Administrator ou RBAC Administrator sur le resource
 group. Aucun composant n'appelle le SDK Azure ML : `register_model` laisse
-Azure ML enregistrer le modèle via la sortie nommée du pipeline, et le
+`scripts/bootstrap-project.sh` enregistrer le modèle avec l'identité de
+celui qui le lance (utilisateur ou identité GitHub de la CD), et le
 compute n'a besoin d'aucun rôle sur le workspace.
 
 Least privilege : chaque identité ne reçoit que les rôles strictement
@@ -69,9 +70,15 @@ ni à sécuriser séparément.
   workspace) — jamais de mot de passe ou de clé.
 - **CI/CD** : authentification Azure via OIDC fédéré
   (`azure/login@v2` avec `client-id`/`tenant-id`/`subscription-id`,
-  voir `.github/workflows/cd.yml`) — pas de `AZURE_CLIENT_SECRET`.
-  Configurer une [identité fédérée](https://learn.microsoft.com/azure/developer/github/connect-from-azure)
-  entre le dépôt GitHub et l'application Microsoft Entra ID du déploiement.
+  voir `.github/workflows/deploy-env.yml`) — pas de `AZURE_CLIENT_SECRET`.
+  L'identité de la CD est une identité managée du resource group, avec une
+  [federated credential](https://learn.microsoft.com/azure/developer/github/connect-from-azure)
+  par environnement GitHub (`dev`, `production`) : seul un job de ces
+  environnements, dans ce dépôt, peut obtenir un jeton. Les trois
+  identifiants sont rangés en **variables** GitHub : ils ne permettent pas de
+  se connecter, ce ne sont pas des secrets. Droits de l'identité :
+  Contributor sur le resource group, rien de plus (voir
+  `docs/CUSTOMIZATION_GUIDE.md` §19).
 - **Local** : `az login` (compte utilisateur) pour les opérations manuelles
   (`terraform apply`, `az ml job create`).
 - **Secrets applicatifs éventuels** (ex : clé d'API tierce fournie par le

@@ -70,15 +70,14 @@ jobs:
       evaluation_report: ${{parent.jobs.evaluate_job.outputs.evaluation_report}}
       rmse_threshold: ${{parent.inputs.rmse_threshold}}
       mape_threshold_pct: ${{parent.inputs.mape_threshold_pct}}
-    # Modèle accepté par le gate. Déclarer un `name` suffit : Azure ML
-    # l'enregistre lui-même dans le registre (nouvelle version à chaque run
-    # réussi) quand l'étape se termine. Aucun appel au SDK depuis le code,
-    # donc aucun rôle Azure à accorder à l'identité du compute.
-    # `type` et `name` sont déclarés ICI, sur la sortie de l'étape : déclarés
-    # sur une sortie de pipeline, le modèle a été enregistré en CUSTOM au lieu
-    # de MLFLOW (constaté sur un run réel), et le déploiement batch sans code
-    # exige un modèle MLFLOW.
+    # Modèle accepté par le gate (la sortie n'existe que si le gate réussit).
+    # Pas de `name` ici : l'enregistrement automatique d'une sortie nommée
+    # produit toujours un modèle CUSTOM (constaté sur deux runs réels, que le
+    # nom soit déclaré sur la sortie du pipeline ou sur celle de l'étape), or
+    # le déploiement batch sans code exige un modèle MLFLOW. Le modèle est
+    # donc enregistré en MLFLOW par scripts/bootstrap-project.sh (étape 8),
+    # avec l'identité de celui qui lance le script : aucun rôle Azure à
+    # accorder à l'identité du compute.
     outputs:
       model_output:
         type: mlflow_model
-        name: house-price-model
