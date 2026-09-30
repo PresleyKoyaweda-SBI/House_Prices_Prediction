@@ -2,7 +2,7 @@
 
 Starter kit interne SBI : la base que nous clonons pour démarrer un projet
 Machine Learning sur Azure chez un client — infrastructure Terraform,
-composants et pipeline Azure ML CLI v2/SDK v2, CI/CD dev → staging → prod.
+composants et pipeline Azure ML CLI v2/SDK v2, CI/CD dev → prod.
 Ce dépôt n'est pas livré au client tel quel : on **clone une copie par
 client** et on la personnalise pour son projet — voir
 [docs/CUSTOMIZATION_GUIDE.md](docs/CUSTOMIZATION_GUIDE.md).
@@ -25,7 +25,7 @@ flowchart LR
     end
 
     MLW <--> Pipeline
-    RM --> EP["ml/endpoints/{online,batch}<br/>(déploiement du modèle)"]
+    RM --> EP["ml/endpoints/batch<br/>(scoring des districts en lot)"]
 ```
 
 Détails : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) ·
@@ -93,20 +93,17 @@ az ml compute create --file ml/compute/compute-cluster.yml \
 az ml environment create --file ml/environments/training-environment.yml \
   --resource-group <rg> --workspace-name <workspace>
 
-# Requis : autoriser le compute à pull les images Docker (ACR sans admin
-# user — voir ml/compute/compute-cluster.yml)
+# Uniquement en mode RBAC (ACR sans compte admin, voir
+# ml/compute/compute-cluster.yml) : autoriser le compute à pull les images
+# Docker. Exige Owner / RBAC Administrator. Inutile avec la configuration
+# actuelle de dev et prod (admin_enabled = true), déployable avec le seul
+# rôle Contributor sur le resource group.
 COMPUTE_PRINCIPAL_ID=$(az ml compute show --name cpu-cluster \
   --resource-group <rg> --workspace-name <workspace> \
   --query identity.principal_id -o tsv)
 ACR_ID=$(az acr show --name <acr-name> --resource-group <rg> --query id -o tsv)
 az role assignment create --assignee-object-id "$COMPUTE_PRINCIPAL_ID" \
   --assignee-principal-type ServicePrincipal --role AcrPull --scope "$ACR_ID"
-
-# Requis : autoriser le compute à appeler le SDK Azure ML depuis le code des
-# composants (ex. register_model — ml_client.models.create_or_update)
-WS_ID=$(az ml workspace show --name <workspace> --resource-group <rg> --query id -o tsv)
-az role assignment create --assignee-object-id "$COMPUTE_PRINCIPAL_ID" \
-  --assignee-principal-type ServicePrincipal --role "AzureML Data Scientist" --scope "$WS_ID"
 
 # Pipeline d'entraînement d'exemple
 az ml data create --file ml/data/sample-data-asset.yml \

@@ -22,13 +22,13 @@ section indique le(s) fichier(s) à modifier et ce qu'il faut y mettre.
 | 11 | Métriques | `components/evaluate/src/main.py` |
 | 12 | Compute | `ml/compute/compute-cluster.yml`, `ml/pipelines/training-pipeline.yml` |
 | 13 | Environnement conda/Docker | `ml/environments/conda.yml`, `ml/environments/training-environment.yml` |
-| 14 | Endpoint (online/batch) | `ml/endpoints/{online,batch}/` |
-| 15 | Sécurité (auth endpoint) | `ml/endpoints/online/online-endpoint.yml` |
+| 14 | Endpoint (batch) | `ml/endpoints/batch/` |
+| 15 | Sécurité (auth endpoint) | `ml/endpoints/batch/batch-endpoint.yml` |
 | 16 | RBAC | `infrastructure/terraform/machine_learning_workspace.tf` |
 | 17 | Réseau (optionnel) | `docs/SECURITY.md` |
 | 18 | Monitoring | `infrastructure/terraform/application_insights.tf` |
 | 19 | CI/CD (secrets, environnements GitHub) | `.github/workflows/`, Settings GitHub |
-| 20 | Stratégie de promotion dev→staging→prod | `docs/MLOPS_LIFECYCLE.md`, `environments/` |
+| 20 | Stratégie de promotion dev→prod | `docs/MLOPS_LIFECYCLE.md`, `environments/` |
 | 21 | State Terraform distant | `make bootstrap-tfstate`, `environments/backend-*.hcl` |
 
 ---
@@ -115,10 +115,11 @@ neurones, etc.) et ses hyperparamètres. Conserver le format de sortie
 
 ## 11. Métriques
 
-`components/evaluate/src/main.py` — remplacer `accuracy`/`f1_score` par les
-métriques pertinentes pour le cas d'usage (AUC, RMSE, précision/rappel par
-classe, métriques métier). Mettre à jour en conséquence le seuil de gating
-dans `components/register_model/component.yml` (`accuracy_threshold`).
+`components/evaluate/src/main.py` — RMSE, MAE, MAPE et R² (traduits en
+dollars), erreur séparée sur les districts plafonnés et importance par
+permutation. Les seuils de gating (`rmse_threshold`, `mape_threshold_pct`)
+se règlent dans `ml/pipelines/training-pipeline.yml` et sont appliqués par
+`components/register_model`.
 
 ## 12. Compute
 
@@ -153,21 +154,22 @@ remplacer alors `environment: azureml:ml-project-training-env@latest` par
 `environment: azureml:<nom-curated>@latest` dans le(s) `component.yml`
 concerné(s).
 
-## 14. Endpoint (online ou batch)
+## 14. Endpoint (batch)
 
-Choisir **un seul** modèle de déploiement (voir `ml/endpoints/README.md`) :
-- Temps réel → `ml/endpoints/online/`
-- Traitement différé de gros volumes → `ml/endpoints/batch/`
+Le modèle est déployé sur un endpoint **batch** (`ml/endpoints/batch/`) :
+il note tous les districts d'un coup, périodiquement, ce qui correspond au
+cas d'usage (comparer et prioriser des zones). L'exemple d'endpoint en ligne
+a été supprimé — voir `ml/endpoints/README.md` pour la justification et
+pour le recréer si un besoin temps réel apparaît.
 
-Supprimer le dossier non utilisé. Adapter `instance_type`/`instance_count`
-(online) ou `max_concurrency_per_instance`/`mini_batch_size` (batch) à la
-charge attendue.
+`ml/endpoints/batch/batch-deployment.yml` — adapter
+`max_concurrency_per_instance`/`mini_batch_size` à la charge attendue. Pour
+un modèle MLflow, `mini_batch_size` compte des fichiers, pas des lignes.
 
 ## 15. Sécurité (authentification endpoint)
 
-`ml/endpoints/online/online-endpoint.yml` — `auth_mode: key` (défaut,
-simple) ou `auth_mode: aad_token` (Microsoft Entra ID, recommandé pour une
-intégration avec des applications internes du client). Détails :
+`ml/endpoints/batch/batch-endpoint.yml` — `auth_mode: aad_token`
+(Microsoft Entra ID), seul mode accepté par les endpoints batch. Détails :
 [docs/SECURITY.md](SECURITY.md).
 
 ## 16. RBAC
@@ -193,17 +195,19 @@ supplémentaire requise pour un monitoring de base.
 
 - Secrets GitHub à configurer (Settings > Secrets and variables > Actions) :
   `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` (fédération
-  OIDC — voir [docs/SECURITY.md](SECURITY.md)), et optionnellement
-  `DEV_ONLINE_ENDPOINT_URL`/`DEV_ONLINE_ENDPOINT_KEY` pour les tests smoke.
+  OIDC — voir [docs/SECURITY.md](SECURITY.md)).
 - Variables de repo GitHub (même emplacement, onglet "Variables" — ce ne
   sont pas des secrets) : `TF_STATE_RESOURCE_GROUP`,
   `TF_STATE_STORAGE_ACCOUNT`, `TF_STATE_CONTAINER` — valeurs affichées par
-  `make bootstrap-tfstate` (voir §21).
-- Environnements GitHub à créer (Settings > Environments) : `dev`,
-  `staging` (règle d'approbation recommandée), `production` (règle
-  d'approbation **requise**).
+  `make bootstrap-tfstate` (voir §21) ; et optionnellement
+  `DEV_AZURE_RESOURCE_GROUP`/`DEV_AZUREML_WORKSPACE_NAME` pour les tests
+  smoke de l'endpoint batch (ignorés tant qu'elles ne sont pas définies).
+  L'identité OIDC doit pouvoir invoquer l'endpoint (rôle
+  AzureML Data Scientist sur le workspace dev).
+- Environnements GitHub à créer (Settings > Environments) : `dev` et
+  `production` (règle d'approbation **requise**). Pas de staging.
 
-## 20. Stratégie de promotion dev → staging → prod
+## 20. Stratégie de promotion dev → prod
 
 Décrite dans [docs/MLOPS_LIFECYCLE.md](MLOPS_LIFECYCLE.md). Points à valider
 avec le client : fréquence de réentraînement, critère de promotion d'un

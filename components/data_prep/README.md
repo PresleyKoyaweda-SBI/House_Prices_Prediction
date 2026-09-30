@@ -1,27 +1,26 @@
 # Composant `data_prep`
 
-**SAMPLE — logique métier à remplacer.**
+Lit le CSV California Housing (un district par ligne), vérifie qu'il respecte le schéma attendu
+(8 variables + `MedHouseVal`), retire les lignes sans cible et les doublons, puis sépare un jeu
+d'entraînement et un jeu de test (graine fixe, donc découpage identique d'un run à l'autre).
 
-Lit un dossier de données brutes (`uri_folder`, CSV), effectue une séparation
-train/test et écrit deux jeux en sortie (`train_data`, `test_data`).
+Le feature engineering n'est **pas** fait ici : il fait partie du pipeline scikit-learn du
+composant `train`, pour être appliqué à l'identique à l'entraînement et à l'inférence.
 
 ## Entrées / sorties
 
 | Nom | Direction | Type | Description |
 |---|---|---|---|
-| `raw_data` | entrée | `uri_folder` | Données brutes |
+| `raw_data` | entrée | `uri_folder` | Dossier contenant **un seul** CSV (data asset `house-prices-raw-data`) |
 | `test_size` | entrée | `number` | Proportion réservée au test (défaut : 0.2) |
-| `train_data` | sortie | `uri_folder` | Jeu d'entraînement |
-| `test_data` | sortie | `uri_folder` | Jeu de test |
+| `train_data` | sortie | `uri_folder` | `train.csv` |
+| `test_data` | sortie | `uri_folder` | `test.csv` |
+
+Le composant échoue explicitement si le dossier contient zéro ou plusieurs CSV, ou si une
+colonne attendue manque : mieux vaut un échec clair qu'un modèle entraîné sur de mauvaises données.
 
 ## Test local
 
 ```bash
 pytest components/data_prep/tests/
 ```
-
-## Personnalisation
-
-Remplacez `src/main.py` par la logique réelle de nettoyage/préparation du
-client. Conservez la signature des entrées/sorties (ou mettez à jour
-`component.yml` et `ml/pipelines/training-pipeline.yml` en conséquence).

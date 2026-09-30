@@ -13,30 +13,41 @@
 #   az ml compute create --file ml/compute/compute-cluster.yml \
 #     --resource-group <rg> --workspace-name <workspace>
 #
-# `identity: system_assigned` est requis quand le Container Registry n'a
-# pas l'admin user activé (défaut de ce starter kit — voir
-# infrastructure/terraform/container_registry.tf) : AmlCompute pull les
-# images Docker avec SA PROPRE identité managée, pas celle du workspace
-# (constaté sur un test réel — l'AcrPull accordé uniquement à l'identité
-# du workspace ne suffit pas). Après création, accorder à cette identité :
-#   1. AcrPull sur le Container Registry (pull des images)
-#   2. AzureML Data Scientist sur le workspace (le code des composants,
-#      ex. register_model, appelle le SDK azure-ai-ml — MLClient — avec
-#      cette même identité, pas celle du workspace)
-# Une seule fois par cluster, voir README — Quick Start :
-#   az role assignment create --assignee-object-id <principal_id du compute> \
-#     --assignee-principal-type ServicePrincipal --role AcrPull \
-#     --scope <id de l'ACR>
-#   az role assignment create --assignee-object-id <principal_id du compute> \
-#     --assignee-principal-type ServicePrincipal --role "AzureML Data Scientist" \
-#     --scope <id du workspace>
+# Accès aux images Docker de l'ACR, selon le mode choisi dans les tfvars :
+# - Sans RBAC (enable_rbac_assignments = false, ACR admin_enabled = true,
+#   configuration actuelle de dev et prod) : Azure ML récupère les images
+#   avec le compte admin de l'ACR. Aucun rôle à attribuer, donc aucun besoin
+#   d'un Owner sur le resource group.
+# - Avec RBAC (ACR sans compte admin) : AmlCompute récupère les images avec
+#   SA PROPRE identité managée, pas celle du workspace (constaté sur un test
+#   réel). Il faut alors accorder AcrPull à cette identité, une fois par
+#   cluster (fait par scripts/bootstrap-project.sh si tu en as le droit) :
+#     az role assignment create --assignee-object-id <principal_id du compute> \
+#       --assignee-principal-type ServicePrincipal --role AcrPull \
+#       --scope <id de l'ACR>
+# Aucun autre rôle n'est nécessaire : register_model n'appelle pas le SDK
+# Azure ML (le modèle est enregistré par Azure ML via la sortie nommée du
+# pipeline). `identity: system_assigned` reste déclaré pour le mode RBAC.
 $schema: https://azuremlschemas.azureedge.net/latest/amlCompute.schema.json
 name: cpu-cluster
 type: amlcompute
-# TEMPLATE: customize for client — taille de VM adaptée à la charge réelle
+# Dimensionné sur la charge mesurée (run local sur les 20 640 districts) :
+# data_prep ~8 s, train ~50 s, evaluate ~16 s, moins de 350 Mo de RAM par
+# étape. Standard_DS3_v2 (4 vCPU, 14 Go) laisse une large marge mémoire, et
+# ses 4 cœurs servent à XGBoost (n_jobs=-1 dans train). Une VM plus petite
+# n'économiserait que quelques centimes par run : le cluster est facturé à la
+# minute et redescend à zéro nœud.
 size: Standard_DS3_v2
 min_instances: 0
-max_instances: 4
+# Les étapes du pipeline s'enchaînent : un run n'occupe qu'un nœud. 2 nœuds
+# permettent un réentraînement et un scoring batch (batch-deployment.yml) en
+# parallèle, en plafonnant la dépense en cas de soumissions multiples.
+max_instances: 2
+# 5 min : le nœud reste chaud entre deux étapes du pipeline, ce qui évite de
+# payer plusieurs minutes de démarrage de VM à chaque étape.
 idle_time_before_scale_down: 300
+# Pas d'accès SSH aux nœuds : aucun besoin pour des jobs batch, et une surface
+# d'attaque de moins (activé par défaut par Azure ML).
+ssh_public_access_enabled: false
 identity:
   type: system_assigned

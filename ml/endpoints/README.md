@@ -1,16 +1,18 @@
-# Endpoints (optionnel)
+# Endpoint batch
 
-Deux familles d'exemples sont fournies — **choisissez celle adaptée au
-besoin réel du client et supprimez l'autre** (ne déployez jamais les deux
-par défaut) :
+Le modèle est déployé sur un **endpoint batch** (`batch/`) : inférence différée sur de gros
+volumes, déclenchée à la demande ou planifiée.
 
-- `online/` — inférence temps réel synchrone (API REST), pour une prédiction
-  à la demande sur une requête unique ou un petit lot.
-- `batch/` — inférence différée sur de gros volumes de données, planifiée ou
-  déclenchée à la demande.
+Ce choix découle du cas d'usage (voir `notebooks/01_Exploration.ipynb`) : le modèle sert à
+**comparer et prioriser des districts** (zones sous-évaluées, valeur des garanties d'un
+portefeuille, études de logement). On note tous les districts d'un coup, périodiquement, à
+partir de données de recensement qui changent peu : aucune réponse temps réel n'est nécessaire.
+Le batch tourne sur `cpu-cluster`, qui redescend à zéro nœud, alors qu'un endpoint en ligne
+facturerait une VM en permanence.
 
-# TEMPLATE: optional — dans la majorité des cas, un seul des deux modèles
-de déploiement est nécessaire. Un endpoint managé Azure ML (online ou batch)
-suffit pour la quasi-totalité des cas d'usage ; n'introduisez pas d'AKS ou
-d'infrastructure de service dédiée sans besoin explicite (scalabilité
-extrême, contrôle réseau avancé, etc.).
+L'exemple d'endpoint en ligne du starter kit a été supprimé. Si un besoin temps réel apparaît
+(une application qui demande l'estimation d'un district à la volée), le recréer à partir de la
+[documentation Microsoft](https://learn.microsoft.com/azure/machine-learning/how-to-deploy-online-endpoints).
+
+N'introduisez pas d'AKS ou d'infrastructure de service dédiée sans besoin explicite
+(scalabilité extrême, contrôle réseau avancé, etc.).

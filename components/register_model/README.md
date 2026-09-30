@@ -1,29 +1,38 @@
 # Composant `register_model`
 
-**SAMPLE — logique de gating (seuil d'accuracy) à adapter.**
+Contrôle de qualité avant enregistrement. Lit le rapport produit par `evaluate` et laisse passer le
+modèle seulement s'il respecte les deux seuils d'acceptabilité du notebook :
 
-Lit le rapport d'évaluation produit par `evaluate` et n'enregistre le
-modèle dans le Model Registry Azure ML que si sa métrique dépasse
-`accuracy_threshold`. Utilise l'identité managée du compute — aucun secret
-n'est requis.
-
-## Entrées
-
-| Nom | Type | Description |
+| Métrique | Seuil par défaut | Ce que ça veut dire |
 |---|---|---|
-| `model_input` | `mlflow_model` | Modèle entraîné |
-| `evaluation_report` | `uri_folder` | Rapport d'évaluation (`metrics.json`) |
-| `model_name` | `string` | Nom du modèle dans le registre |
-| `accuracy_threshold` | `number` | Seuil minimal d'accuracy (SAMPLE, défaut : 0.6) |
+| **RMSE** (*Root Mean Squared Error*) | ≤ 0,5 | Erreur typique d'au plus **50 000 $** sur la valeur médiane d'un district |
+| **MAPE** (*Mean Absolute Percentage Error*) | ≤ 20 % | Estimation en moyenne à moins de **20 %** de la valeur réelle |
+
+Pour une erreur, plus bas = meilleur : chaque seuil est un maximum. Une métrique absente du rapport
+compte comme un échec.
+
+- **Modèle accepté** : il est recopié vers la sortie `model_output`. Le pipeline déclare cette
+  sortie comme modèle nommé (`house-price-model`), et c'est **Azure ML qui l'enregistre** dans le
+  registre à la fin de l'étape.
+- **Modèle refusé** : le composant échoue avec la raison du refus. Le pipeline apparaît en échec
+  dans le studio, et rien n'est enregistré.
+
+Le composant n'appelle pas le SDK Azure ML : l'identité du compute n'a besoin d'**aucun rôle
+Azure**, et le projet se déploie sans Owner sur le resource group. Les métriques restent
+consultables dans le run `evaluate` du pipeline, qui a produit le modèle.
+
+## Entrées / sorties
+
+| Nom | Direction | Type | Description |
+|---|---|---|---|
+| `model_input` | entrée | `mlflow_model` | Modèle entraîné |
+| `evaluation_report` | entrée | `uri_folder` | Rapport d'évaluation (`metrics.json`) |
+| `rmse_threshold` | entrée | `number` | RMSE maximale, en centaines de milliers de $ (défaut : 0.5) |
+| `mape_threshold_pct` | entrée | `number` | MAPE maximale, en % (défaut : 20) |
+| `model_output` | sortie | `mlflow_model` | Modèle accepté, enregistré par Azure ML |
 
 ## Test local
 
 ```bash
 pytest components/register_model/tests/
 ```
-
-## Personnalisation
-
-Remplacez la métrique de gating (accuracy) et le seuil par ceux définis
-avec le client. Pour un cas d'usage sans gating, supprimez simplement la
-condition dans `src/main.py`.

@@ -1,18 +1,10 @@
 # ============================================================================
-# Azure Resource Group
+# Azure Resource Group — existant, provisionné hors Terraform
 # ============================================================================
-# Conteneur logique pour toutes les ressources du projet.
-# 
-# Convention de nommage : rg-{project}-{environment}-{suffix}
-# Exemple : rg-aml-fraud-detection-dev-x7p2k9
+# Référence en lecture seule : ce RG a été créé par l'équipe IT (voir ticket
+# d'accès). Terraform ne le crée ni ne le détruit — seulement les ressources
+# à l'intérieur.
 
-resource "azurerm_resource_group" "rg" {
-  # Nom unique du Resource Group
-  name = "rg-${local.resource_prefix}-${local.suffix}"
-
-  # Région Azure
-  location = var.location
-
-  # Tags pour suivi et gestion
-  tags = local.common_tags
+data "azurerm_resource_group" "rg" {
+  name = var.existing_resource_group_name
 }

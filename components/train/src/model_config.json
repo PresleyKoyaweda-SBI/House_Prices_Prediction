@@ -1,0 +1,36 @@
+{
+  "model": "XGBoost (optimisé)",
+  "members": {
+    "XGBoost": {
+      "objective": "reg:squarederror",
+      "colsample_bytree": 0.5554454104059157,
+      "enable_categorical": false,
+      "learning_rate": 0.03286244101735959,
+      "max_depth": 6,
+      "min_child_weight": 7,
+      "n_estimators": 1764,
+      "n_jobs": 1,
+      "random_state": 42,
+      "reg_lambda": 0.08771380343280563,
+      "subsample": 0.8034282764658811
+    }
+  },
+  "features": [
+    "MedInc",
+    "HouseAge",
+    "AveRooms",
+    "AveBedrms",
+    "Population",
+    "AveOccup",
+    "Latitude",
+    "Longitude"
+  ],
+  "target": "MedHouseVal",
+  "use_log_target": true,
+  "clip_predictions": true,
+  "target_bounds": [
+    0.14999,
+    5.00001
+  ],
+  "drop_extreme_districts": false
+}

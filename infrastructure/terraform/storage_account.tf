@@ -10,8 +10,8 @@ resource "azurerm_storage_account" "storage" {
   name = "st${local.project_name_short}${local.suffix}"
 
   # Localisation dans le Resource Group
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
+  resource_group_name = data.azurerm_resource_group.rg.name
+  location            = data.azurerm_resource_group.rg.location
 
   # Tier de performance (Standard ou Premium)
   account_tier = var.storage_account_config.account_tier

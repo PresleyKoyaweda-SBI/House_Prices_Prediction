@@ -1,19 +1,23 @@
 # TEMPLATE: customize for client
 # ------------------------------------------------------------------------
-# Composant Azure ML CLI v2 — enregistrement conditionnel du modèle.
-# Une seule responsabilité : enregistrer le modèle dans le Model Registry
-# Azure ML si (et seulement si) il satisfait un seuil de métrique minimal.
+# Composant Azure ML CLI v2 — contrôle de qualité avant enregistrement.
+# Une seule responsabilité : laisser passer le modèle vers sa sortie si (et
+# seulement si) il respecte les seuils de RMSE et de MAPE, et échouer sinon.
+# L'enregistrement dans le registre est fait par Azure ML lui-même, à partir
+# de la sortie nommée déclarée dans ml/pipelines/training-pipeline.yml : le
+# code n'appelle pas le SDK, et l'identité du compute n'a besoin d'aucun rôle.
 #
 # Référence Microsoft officielle :
-# https://learn.microsoft.com/azure/machine-learning/how-to-manage-models
+# https://learn.microsoft.com/azure/machine-learning/how-to-manage-inputs-outputs-pipeline
 $schema: https://azuremlschemas.azureedge.net/latest/commandComponent.schema.json
 name: register_model
-display_name: "Enregistrement du modèle"
-version: 1
+display_name: "Contrôle qualité et enregistrement du modèle"
+version: 2
 type: command
 description: >-
-  SAMPLE — enregistre le modèle dans le Model Registry Azure ML uniquement
-  si sa métrique d'évaluation dépasse un seuil configurable (gating).
+  Vérifie que le modèle respecte les seuils de RMSE et de MAPE sur le jeu de
+  test, puis le transmet à sa sortie, enregistrée par Azure ML dans le
+  registre. Échoue (et n'enregistre rien) si un seuil n'est pas respecté.
 
 inputs:
   model_input:
@@ -22,14 +26,23 @@ inputs:
   evaluation_report:
     type: uri_folder
     description: "Rapport d'évaluation (sortie de evaluate)."
-  model_name:
-    type: string
-    description: "Nom sous lequel enregistrer le modèle dans le registre."
-    default: ml-project-model
-  accuracy_threshold:
+  rmse_threshold:
     type: number
-    description: "SAMPLE — seuil minimal d'accuracy requis pour l'enregistrement."
-    default: 0.6
+    description: >-
+      RMSE maximale acceptée (en centaines de milliers de $). 0.5 = 50 000 $
+      d'écart typique sur la valeur médiane d'un district.
+    default: 0.5
+  mape_threshold_pct:
+    type: number
+    description: >-
+      MAPE maximale acceptée, en %. 20 = estimation en moyenne à moins de
+      20 % de la valeur réelle d'un district.
+    default: 20
+
+outputs:
+  model_output:
+    type: mlflow_model
+    description: "Modèle accepté, enregistré par Azure ML sous le nom déclaré dans le pipeline."
 
 code: ./src
 
@@ -40,5 +53,6 @@ command: >-
   python main.py
   --model_input ${{inputs.model_input}}
   --evaluation_report ${{inputs.evaluation_report}}
-  --model_name ${{inputs.model_name}}
-  --accuracy_threshold ${{inputs.accuracy_threshold}}
+  --rmse_threshold ${{inputs.rmse_threshold}}
+  --mape_threshold_pct ${{inputs.mape_threshold_pct}}
+  --model_output ${{outputs.model_output}}

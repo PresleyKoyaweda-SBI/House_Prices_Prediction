@@ -4,8 +4,8 @@
 # Usage : terraform plan -var-file=../../environments/staging.tfvars
 
 # TEMPLATE: customize for client
-location     = "eastus"
-project_name = "mon-projet-ml"
+location     = "canadacentral"
+project_name = "house-price"
 environment  = "staging"
 
 tags = {

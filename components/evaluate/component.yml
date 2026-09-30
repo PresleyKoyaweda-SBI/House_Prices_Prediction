@@ -9,8 +9,8 @@ display_name: "Évaluation du modèle"
 version: 1
 type: command
 description: >-
-  SAMPLE — calcule des métriques de classification sur le jeu de test et
-  écrit un rapport JSON.
+  Calcule RMSE, MAE, MAPE et R² sur le jeu de test (avec leur équivalent en
+  dollars) et écrit un rapport metrics.json lu par register_model.
 
 inputs:
   model_input:
@@ -23,7 +23,7 @@ inputs:
 outputs:
   evaluation_report:
     type: uri_folder
-    description: "Rapport d'évaluation (metrics.json)."
+    description: "Rapport d'évaluation (metrics.json, feature_importance.json)."
 
 code: ./src
 

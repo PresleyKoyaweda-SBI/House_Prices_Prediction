@@ -8,11 +8,20 @@
 $schema: https://azuremlschemas.azureedge.net/latest/modelBatchDeployment.schema.json
 name: ml-project-batch-deployment
 endpoint_name: ml-project-batch-endpoint
-model: azureml:ml-project-model@latest
+# Déploiement d'un modèle enregistré (format MLflow : aucun script de scoring
+# ni environnement à fournir, Azure ML les déduit du modèle).
+type: model
+model: azureml:house-price-model@latest
 compute: azureml:cpu-cluster
 resources:
   instance_count: 1
-max_concurrency_per_instance: 2
-mini_batch_size: 10
-output_action: append_row
-output_file_name: predictions.csv
+# Charge attendue : un seul CSV d'environ 20 000 districts par scoring (toute
+# la Californie), noté en quelques secondes par le modèle. Pour un modèle
+# MLflow, mini_batch_size compte des FICHIERS, pas des lignes : avec un seul
+# fichier, un nœud et un process suffisent. À augmenter seulement si les
+# données arrivent découpées en de nombreux fichiers.
+settings:
+  max_concurrency_per_instance: 1
+  mini_batch_size: 1
+  output_action: append_row
+  output_file_name: predictions.csv

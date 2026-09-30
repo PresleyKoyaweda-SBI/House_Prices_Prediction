@@ -56,6 +56,10 @@ dependencies = [
     "azure-identity==1.25.*",
     "azure-storage-blob==12.22.*",
     "azure-keyvault-secrets==4.8.*",
+    # Modèles de boosting utilisés par components/train (modèle retenu dans
+    # notebooks/01_Exploration.ipynb) — alignés sur ml/environments/conda.yml.
+    "lightgbm==4.7.*",
+    "xgboost==3.2.*",
 ]
 
 # `cryptography` (transitive, via azure-identity) reste non épinglé et donc
@@ -90,6 +94,10 @@ dev = [
 ]
 notebooks = [
     "jupyter==1.0.*",
+    # Exploration / sélection de modèle (notebooks/01_Exploration.ipynb).
+    "python-dotenv==1.*",
+    "seaborn==0.13.*",
+    "statsmodels==0.15.*",
 ]
 
 [tool.ruff]

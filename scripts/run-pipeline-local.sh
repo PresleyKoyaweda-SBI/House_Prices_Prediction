@@ -15,11 +15,14 @@ set -euo pipefail
 # installées dans l'environnement Python actif).
 #
 # Usage :
-#   ./scripts/run-pipeline-local.sh [chemin_csv]   (défaut : sample_data/training_data.csv)
+#   ./scripts/run-pipeline-local.sh [chemin_csv]   (défaut : sample_data/california_housing.csv)
 
-RAW_CSV="${1:-sample_data/training_data.csv}"
+RAW_CSV="${1:-sample_data/california_housing.csv}"
 WORKDIR=$(mktemp -d)
 trap 'rm -rf "$WORKDIR"' EXIT
+# Suivi MLflow isolé dans le dossier de travail (supprimé à la fin), sauf si un serveur de
+# suivi est déjà configuré : un dry-run local ne doit rien écrire dans le dépôt.
+export MLFLOW_TRACKING_URI="${MLFLOW_TRACKING_URI:-sqlite:///$WORKDIR/mlflow.db}"
 
 step() { echo ""; echo "▶ $1"; echo "----------------------------------------"; }
 
@@ -35,7 +38,7 @@ python components/data_prep/src/main.py \
 
 step "2/3 — train"
 python components/train/src/main.py \
-  --train_data "$WORKDIR/train_data" --n_estimators 100 \
+  --train_data "$WORKDIR/train_data" \
   --model_output "$WORKDIR/model_output"
 
 step "3/3 — evaluate"

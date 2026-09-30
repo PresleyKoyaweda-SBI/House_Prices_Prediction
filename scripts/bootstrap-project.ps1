@@ -6,11 +6,10 @@
 
 .DESCRIPTION
     Enchaîne toutes les étapes manuelles du Quick Start du README : infra
-    Terraform, création du compute/environnement Azure ML, role assignments
-    requis (AcrPull, AzureML Data Scientist), enregistrement du data asset,
-    et soumission du pipeline d'entraînement (sample tant qu'il n'a pas
-    encore été personnalisé, voir docs/CUSTOMIZATION_GUIDE.md) — le premier
-    déploiement d'un nouveau projet client, une fois le repo cloné.
+    Terraform, création du compute/environnement Azure ML, accès du compute
+    à l'ACR (AcrPull, seulement si le compte admin de l'ACR est désactivé),
+    enregistrement du data asset, et soumission du pipeline d'entraînement —
+    le premier déploiement d'un nouveau projet client, une fois le repo cloné.
     Idempotent : peut être relancé sans échouer si une ressource existe déjà.
 
 .PARAMETER Env
@@ -34,25 +33,12 @@ $ErrorActionPreference = "Stop"
 $TfDir = "infrastructure/terraform"
 $ComputeName = "cpu-cluster"
 $EnvName = "ml-project-training-env"
-$DataName = "sample-training-data"
+$DataName = "house-prices-raw-data"
 
 function Step($msg) {
     Write-Host ""
     Write-Host "▶ $msg"
     Write-Host "----------------------------------------"
-}
-
-function Assign-Role($principalId, $role, $scope) {
-    $existing = az role assignment list --assignee-object-id $principalId `
-        --scope $scope --query "[?roleDefinitionName=='$role']" -o tsv
-    if ($existing) {
-        Write-Host "✅ Rôle '$role' déjà assigné"
-    }
-    else {
-        az role assignment create --assignee-object-id $principalId `
-            --assignee-principal-type ServicePrincipal --role $role --scope $scope | Out-Null
-        Write-Host "✅ Rôle '$role' assigné"
-    }
 }
 
 Step "0/7 — Vérification az login"
@@ -108,15 +94,43 @@ az ml environment create --file ml/environments/training-environment.yml `
     --resource-group $Rg --workspace-name $Workspace | Out-Null
 Write-Host "✅ Environnement enregistré (nouvelle version si conda.yml a changé)"
 
-Step "5/7 — Role assignments du compute (AcrPull, AzureML Data Scientist)"
-$ComputePrincipalId = az ml compute show --name $ComputeName `
-    --resource-group $Rg --workspace-name $Workspace `
-    --query identity.principal_id -o tsv
-$AcrId = az acr show --name $Acr --resource-group $Rg --query id -o tsv
-$WsId = az ml workspace show --name $Workspace --resource-group $Rg --query id -o tsv
-
-Assign-Role $ComputePrincipalId "AcrPull" $AcrId
-Assign-Role $ComputePrincipalId "AzureML Data Scientist" $WsId
+Step "5/7 — Accès du compute à l'ACR (images Docker)"
+# Le seul rôle dont le compute peut avoir besoin : register_model n'appelle
+# plus le SDK (l'enregistrement est fait par Azure ML via la sortie nommée du
+# pipeline), donc plus besoin de "AzureML Data Scientist".
+$AdminEnabled = az acr show --name $Acr --resource-group $Rg --query adminUserEnabled -o tsv
+if ($AdminEnabled -eq "true") {
+    # Mode sans RBAC (enable_rbac_assignments = false dans les tfvars) : Azure ML
+    # récupère les images avec le compte admin de l'ACR, aucun rôle à attribuer.
+    # Ce mode permet de déployer avec le seul rôle Contributor sur le RG.
+    Write-Host "✅ Compte admin de l'ACR activé : aucun rôle à attribuer"
+}
+else {
+    $ComputePrincipalId = az ml compute show --name $ComputeName `
+        --resource-group $Rg --workspace-name $Workspace `
+        --query identity.principal_id -o tsv
+    $AcrId = az acr show --name $Acr --resource-group $Rg --query id -o tsv
+    $existing = az role assignment list --assignee-object-id $ComputePrincipalId `
+        --scope $AcrId --query "[?roleDefinitionName=='AcrPull']" -o tsv
+    if ($existing) {
+        Write-Host "✅ Rôle 'AcrPull' déjà assigné"
+    }
+    else {
+        az role assignment create --assignee-object-id $ComputePrincipalId `
+            --assignee-principal-type ServicePrincipal --role AcrPull --scope $AcrId | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            # Attribuer un rôle exige Owner, User Access Administrator ou RBAC
+            # Administrator : sans ce droit, un administrateur doit le faire.
+            Write-Host "❌ Impossible d'attribuer AcrPull (droit Microsoft.Authorization/roleAssignments/write requis)."
+            Write-Host "   Faire lancer par un Owner du resource group :"
+            Write-Host "   az role assignment create --assignee-object-id $ComputePrincipalId ``"
+            Write-Host "     --assignee-principal-type ServicePrincipal --role AcrPull --scope $AcrId"
+            Write-Host "   Ou passer en mode sans RBAC : admin_enabled = true dans environments/$Env.tfvars."
+            exit 1
+        }
+        Write-Host "✅ Rôle 'AcrPull' assigné"
+    }
+}
 
 Step "6/7 — Data asset ($DataName)"
 try {

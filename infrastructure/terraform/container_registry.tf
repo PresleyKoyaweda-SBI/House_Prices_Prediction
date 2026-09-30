@@ -10,8 +10,8 @@ resource "azurerm_container_registry" "acr" {
   name = "acr${local.project_name_short}${local.suffix}"
 
   # Localisation
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
+  resource_group_name = data.azurerm_resource_group.rg.name
+  location            = data.azurerm_resource_group.rg.location
 
   # SKU (Basic, Standard, Premium)
   # Basic   : dev/test, compression minimale
@@ -27,8 +27,19 @@ resource "azurerm_container_registry" "acr" {
   # Accès réseau public
   # dev/staging : true (accès depuis n'importe où)
   # prod       : false + connexion via Private Link
-  public_network_access_enabled = var.environment != "prod" ? true : false
+  # public_network_access_enabled = var.environment != "prod" ? true : false
+  public_network_access_enabled = var.container_registry_config.sku == "Premium" ? false : true
 
   # Tags pour suivi
   tags = local.common_tags
+
+  lifecycle {
+    # Sans attribution de rôle AcrPull (var.enable_rbac_assignments = false), le
+    # workspace et ses clusters ne peuvent récupérer les images d'environnement
+    # qu'avec le compte admin de l'ACR.
+    precondition {
+      condition     = var.enable_rbac_assignments || var.container_registry_config.admin_enabled
+      error_message = "enable_rbac_assignments = false exige container_registry_config.admin_enabled = true (sinon Azure ML ne peut pas récupérer ses images)."
+    }
+  }
 }
