@@ -60,6 +60,13 @@ dependencies = [
     # notebooks/01_Exploration.ipynb) — alignés sur ml/environments/conda.yml.
     "lightgbm==4.7.*",
     "xgboost==3.2.*",
+    # cloudpickle 2.x obligatoire : même version que l'environnement Azure ML
+    # (ml/environments/conda.yml), dont le commentaire explique pourquoi
+    # (conflit avec azureml-dataprep, qui exige cloudpickle<3.0.0, au
+    # déploiement batch). mlflow 3.15 accepte cloudpickle<4.
+    "cloudpickle==2.2.1",
+    # joblib >= 1.6.0 exige cloudpickle>=3.0 : dernière version compatible.
+    "joblib==1.5.3",
 ]
 
 # `cryptography` (transitive, via azure-identity) reste non épinglé et donc

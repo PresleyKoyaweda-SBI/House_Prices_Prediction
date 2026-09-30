@@ -6,9 +6,9 @@ respecte les deux seuils d'acceptabilité fixés dans notebooks/01_Exploration.i
 - RMSE <= 0,50, soit une erreur typique de 50 000 $ sur la valeur médiane d'un district ;
 - MAPE <= 20 %, soit une estimation en moyenne à moins de 20 % de la valeur réelle.
 
-Si le modèle passe, il est recopié vers la sortie `model_output`. C'est cette sortie que le
-pipeline (ml/pipelines/training-pipeline.yml) déclare comme modèle nommé : Azure ML l'enregistre
-lui-même dans le registre, à la fin de l'étape. Le composant n'appelle donc pas le SDK Azure ML,
+Si le modèle passe, il est recopié vers la sortie `model_output`. Une fois le pipeline terminé,
+scripts/bootstrap-project.sh (étape 8) enregistre cette sortie dans le registre en type MLFLOW,
+avec l'identité de celui qui lance le script. Le composant n'appelle donc pas le SDK Azure ML,
 et l'identité du compute n'a besoin d'aucun rôle Azure (pas de role assignment, donc pas besoin
 d'un Owner du resource group).
 
@@ -65,13 +65,14 @@ def main() -> None:
         print("Modèle REFUSÉ, non enregistré : " + " ; ".join(failures), file=sys.stderr)
         sys.exit(1)
 
-    # Le modèle MLflow est un dossier : je le recopie tel quel vers la sortie, qu'Azure ML
-    # enregistre ensuite sous le nom déclaré dans le pipeline.
+    # Le modèle MLflow est un dossier : je le recopie tel quel vers la sortie, que le script de
+    # bootstrap enregistre ensuite en MLFLOW.
     shutil.copytree(args.model_input, args.model_output, dirs_exist_ok=True)
     print(
         f"Modèle ACCEPTÉ : RMSE = {metrics['rmse']:.4f} "
         f"(environ {metrics['rmse'] * TARGET_UNIT_USD:,.0f} $ d'écart typique), "
-        f"MAPE = {metrics['mape_pct']:.1f} %. Enregistré par Azure ML à la fin de l'étape."
+        f"MAPE = {metrics['mape_pct']:.1f} %. "
+        "Enregistré en MLFLOW par le script de bootstrap après le pipeline."
     )
 
 

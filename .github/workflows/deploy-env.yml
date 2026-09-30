@@ -1,0 +1,94 @@
+# Déploiement complet d'UN environnement (appelé par cd.yml, une fois pour dev
+# puis une fois pour prod) : infra Terraform, compute et environnement Azure
+# ML, données, entraînement, enregistrement du modèle en MLFLOW, déploiement
+# batch, puis test smoke sur l'endpoint réel.
+#
+# Tout le travail Azure est fait par scripts/bootstrap-project.sh, le même
+# script que sur un poste : ce qui marche en local marche en CD.
+#
+# Authentification : OIDC fédéré. azure/login échange un jeton GitHub signé,
+# valable quelques minutes et limité à l'environnement GitHub du job, contre
+# un jeton Azure pour l'identité de la CD. Aucun mot de passe n'est stocké :
+# AZURE_CLIENT_ID, AZURE_TENANT_ID et AZURE_SUBSCRIPTION_ID sont de simples
+# identifiants, rangés en variables GitHub (pas en secrets). Droits requis
+# pour l'identité : Contributor sur le resource group, et rien d'autre (mode
+# sans RBAC, voir docs/SECURITY.md).
+name: Déploiement d'un environnement
+
+on:
+  workflow_call:
+    inputs:
+      tf_env:
+        description: "Environnement Terraform (dev | prod) : tfvars, backend et workspace."
+        required: true
+        type: string
+      github_environment:
+        description: "Environnement GitHub (dev | production) : règles d'approbation et confiance OIDC."
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Déployer et valider — ${{ inputs.tf_env }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.github_environment }}
+    # Entraînement compris : 20 à 30 min si l'image d'entraînement doit être
+    # reconstruite, 5 à 15 min de plus pour le test smoke.
+    timeout-minutes: 90
+    env:
+      # Le provider azurerm (>= 4) exige la souscription explicitement.
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.8"  # même version que sur le poste de développement
+          # Le wrapper altère la sortie de `terraform output -raw`, lue par le script.
+          terraform_wrapper: false
+
+      # Les backend-*.hcl ne sont pas versionnés (.gitignore) : je génère celui de
+      # l'environnement à partir des variables du repo. Même clé de state que sur
+      # le poste, pour que la CD et le poste partagent le même state (sinon la CD
+      # recréerait toute l'infrastructure en double). use_azuread_auth = false :
+      # accès au state par la clé du storage, que Contributor peut lire — pas
+      # besoin du rôle Storage Blob Data Contributor en plus.
+      - name: Configuration du backend Terraform
+        run: |
+          cat > "environments/backend-${{ inputs.tf_env }}.hcl" <<EOF
+          resource_group_name  = "${{ vars.TF_STATE_RESOURCE_GROUP }}"
+          storage_account_name = "${{ vars.TF_STATE_STORAGE_ACCOUNT }}"
+          container_name       = "${{ vars.TF_STATE_CONTAINER }}"
+          key                  = "house-price-prediction-${{ inputs.tf_env }}.tfstate"
+          use_azuread_auth     = false
+          EOF
+
+      - name: Infra, entraînement, enregistrement et déploiement
+        run: ./scripts/bootstrap-project.sh "${{ inputs.tf_env }}"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install -e ".[dev]"
+
+      # Le nom du workspace contient un suffixe aléatoire : je le lis dans les
+      # sorties Terraform plutôt que de le stocker en variable.
+      - name: Test smoke de l'endpoint batch
+        run: |
+          export AZURE_RESOURCE_GROUP=$(terraform -chdir=infrastructure/terraform output -raw resource_group_name)
+          export AZUREML_WORKSPACE_NAME=$(terraform -chdir=infrastructure/terraform output -raw workspace_name)
+          export BATCH_ENDPOINT_NAME=$(sed -n 's/^name: *//p' ml/endpoints/batch/batch-endpoint.yml | tr -d '\r')
+          python -m pytest tests/smoke/ -v
+        env:
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}

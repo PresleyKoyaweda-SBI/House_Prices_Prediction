@@ -3,8 +3,8 @@
 # Composant Azure ML CLI v2 — contrôle de qualité avant enregistrement.
 # Une seule responsabilité : laisser passer le modèle vers sa sortie si (et
 # seulement si) il respecte les seuils de RMSE et de MAPE, et échouer sinon.
-# L'enregistrement dans le registre est fait par Azure ML lui-même, à partir
-# de la sortie nommée déclarée dans ml/pipelines/training-pipeline.yml : le
+# L'enregistrement dans le registre (en MLFLOW) est fait après le pipeline
+# par scripts/bootstrap-project.sh (étape 8), avec l'identité de celui qui le lance : le
 # code n'appelle pas le SDK, et l'identité du compute n'a besoin d'aucun rôle.
 #
 # Référence Microsoft officielle :
@@ -16,8 +16,9 @@ version: 2
 type: command
 description: >-
   Vérifie que le modèle respecte les seuils de RMSE et de MAPE sur le jeu de
-  test, puis le transmet à sa sortie, enregistrée par Azure ML dans le
-  registre. Échoue (et n'enregistre rien) si un seuil n'est pas respecté.
+  test, puis le transmet à sa sortie, que le script de bootstrap enregistre
+  ensuite en MLFLOW. Échoue (et rien n'est enregistré) si un seuil n'est
+  pas respecté.
 
 inputs:
   model_input:
@@ -42,7 +43,7 @@ inputs:
 outputs:
   model_output:
     type: mlflow_model
-    description: "Modèle accepté, enregistré par Azure ML sous le nom déclaré dans le pipeline."
+    description: "Modèle accepté (n'existe que si le gate réussit), enregistré en MLFLOW par scripts/bootstrap-project.sh (étape 8)."
 
 code: ./src
 

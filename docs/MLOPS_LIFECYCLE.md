@@ -37,9 +37,11 @@ Le modèle est journalisé au format **MLflow** dès l'entraînement
 (`mlflow.sklearn.save_model` dans `components/train/src/main.py`), puis
 enregistré dans le **Model Registry Azure ML** **uniquement si** sa RMSE et
 sa MAPE respectent les seuils du pipeline : `register_model` fait le
-contrôle et échoue sinon, et Azure ML enregistre lui-même la sortie nommée
-du pipeline (`house-price-model`) quand le contrôle réussit (voir
-[how-to-manage-inputs-outputs-pipeline](https://learn.microsoft.com/azure/machine-learning/how-to-manage-inputs-outputs-pipeline)).
+contrôle et échoue sinon ; quand le contrôle réussit,
+`scripts/bootstrap-project.sh` (étape 8) enregistre sa sortie sous
+`house-price-model`, en type MLFLOW, puis la déploie sur l'endpoint batch
+(étape 9). L'enregistrement automatique d'une sortie nommée n'est pas
+utilisé : il produit un modèle CUSTOM, refusé par le batch sans code.
 
 Chaque version de modèle enregistrée doit rester traçable jusqu'à :
 
@@ -74,9 +76,9 @@ ré-enregistrement ou copie manuelle de fichiers.
 ```
 PR → CI (lint, tests, validation YAML/Terraform, scan secrets)
    → merge main
-   → déploiement DEV (automatique)
-   → validation (tests smoke)
-   → promotion PROD (approbation manuelle requise)
+   → DEV (automatique) : infra, entraînement, enregistrement du modèle,
+     déploiement batch, test smoke
+   → PROD (approbation manuelle requise) : mêmes étapes
 ```
 
 Deux environnements seulement : pas de staging (`staging.tfvars` reste

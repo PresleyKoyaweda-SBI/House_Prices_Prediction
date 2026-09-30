@@ -26,8 +26,9 @@
 #       --assignee-principal-type ServicePrincipal --role AcrPull \
 #       --scope <id de l'ACR>
 # Aucun autre rôle n'est nécessaire : register_model n'appelle pas le SDK
-# Azure ML (le modèle est enregistré par Azure ML via la sortie nommée du
-# pipeline). `identity: system_assigned` reste déclaré pour le mode RBAC.
+# Azure ML (le modèle est enregistré après le pipeline par
+# scripts/bootstrap-project.sh, avec l'identité de celui qui le lance).
+# `identity: system_assigned` reste déclaré pour le mode RBAC.
 $schema: https://azuremlschemas.azureedge.net/latest/amlCompute.schema.json
 name: cpu-cluster
 type: amlcompute

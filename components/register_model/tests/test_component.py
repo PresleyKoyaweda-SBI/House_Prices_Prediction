@@ -1,8 +1,8 @@
 """Tests unitaires du composant register_model (exécution locale, hors Azure ML).
 
 Le composant ne fait qu'un contrôle de qualité et une copie de fichiers : il se teste entièrement
-en local. L'enregistrement dans le registre, fait par Azure ML à partir de la sortie nommée du
-pipeline, n'est pas testable hors d'un vrai workspace.
+en local. L'enregistrement dans le registre, fait après le pipeline par
+scripts/bootstrap-project.sh, n'est pas testable hors d'un vrai workspace.
 """
 
 import json
