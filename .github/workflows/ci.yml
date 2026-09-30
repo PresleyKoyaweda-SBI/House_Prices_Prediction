@@ -1,5 +1,5 @@
 # CI — validation uniquement. Ce workflow NE DÉPLOIE JAMAIS d'infrastructure
-# ni de modèle ; voir .github/workflows/cd.yml pour la promotion dev → staging → prod.
+# ni de modèle ; voir .github/workflows/cd.yml pour la promotion dev → prod.
 name: CI
 
 on:

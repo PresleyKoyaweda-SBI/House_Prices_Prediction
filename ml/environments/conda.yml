@@ -23,12 +23,7 @@ dependencies:
       # components/train — aligné sur pyproject.toml. (lightgbm n'est utile
       # qu'au notebook, qui tourne en local : il reste dans pyproject.toml.)
       - xgboost==3.2.*
-      # azure-ai-ml==1.19.* est trop ancien : son code interne importe un
-      # symbole privé (marshmallow.fields._T) retiré des versions récentes
-      # de marshmallow, malgré une contrainte déclarée marshmallow<4.0.0
-      # théoriquement satisfaite — ImportError constaté sur un build réel
-      # Azure ML. 1.34.* est la version vérifiée compatible (utilisée par
-      # cet environnement de développement).
-      - azure-ai-ml==1.34.*
-      - azure-identity==1.25.*
-      - marshmallow<4.0.0
+      # Pas de SDK Azure ML (azure-ai-ml, azure-identity) : aucun composant ne
+      # l'appelle, register_model laissant Azure ML enregistrer le modèle. Le
+      # SDK reste dans pyproject.toml pour les tests d'intégration et smoke,
+      # qui tournent en local ou en CI.

@@ -1,23 +1,35 @@
 # Composant `register_model`
 
-Lit le rapport produit par `evaluate` et n'enregistre le modèle dans le Model Registry Azure ML
-que si sa **RMSE** (*Root Mean Squared Error*) est **inférieure ou égale** à `rmse_threshold`.
-Pour une erreur, plus bas = meilleur : le seuil est un maximum, pas un minimum.
+Contrôle de qualité avant enregistrement. Lit le rapport produit par `evaluate` et laisse passer le
+modèle seulement s'il respecte les deux seuils d'acceptabilité du notebook :
 
-Le seuil par défaut, **0,5**, correspond à une erreur typique de **50 000 $** sur la valeur
-médiane d'un district : au-delà, l'estimation n'est plus assez fiable pour comparer et prioriser
-des zones. Toutes les métriques du rapport sont copiées dans les propriétés du modèle enregistré.
-
-Utilise l'identité managée du compute — aucun secret n'est requis.
-
-## Entrées
-
-| Nom | Type | Description |
+| Métrique | Seuil par défaut | Ce que ça veut dire |
 |---|---|---|
-| `model_input` | `mlflow_model` | Modèle entraîné |
-| `evaluation_report` | `uri_folder` | Rapport d'évaluation (`metrics.json`) |
-| `model_name` | `string` | Nom du modèle dans le registre (défaut : `house-price-model`) |
-| `rmse_threshold` | `number` | RMSE maximale acceptée, en centaines de milliers de $ (défaut : 0.5) |
+| **RMSE** (*Root Mean Squared Error*) | ≤ 0,5 | Erreur typique d'au plus **50 000 $** sur la valeur médiane d'un district |
+| **MAPE** (*Mean Absolute Percentage Error*) | ≤ 20 % | Estimation en moyenne à moins de **20 %** de la valeur réelle |
+
+Pour une erreur, plus bas = meilleur : chaque seuil est un maximum. Une métrique absente du rapport
+compte comme un échec.
+
+- **Modèle accepté** : il est recopié vers la sortie `model_output`. Le pipeline déclare cette
+  sortie comme modèle nommé (`house-price-model`), et c'est **Azure ML qui l'enregistre** dans le
+  registre à la fin de l'étape.
+- **Modèle refusé** : le composant échoue avec la raison du refus. Le pipeline apparaît en échec
+  dans le studio, et rien n'est enregistré.
+
+Le composant n'appelle pas le SDK Azure ML : l'identité du compute n'a besoin d'**aucun rôle
+Azure**, et le projet se déploie sans Owner sur le resource group. Les métriques restent
+consultables dans le run `evaluate` du pipeline, qui a produit le modèle.
+
+## Entrées / sorties
+
+| Nom | Direction | Type | Description |
+|---|---|---|---|
+| `model_input` | entrée | `mlflow_model` | Modèle entraîné |
+| `evaluation_report` | entrée | `uri_folder` | Rapport d'évaluation (`metrics.json`) |
+| `rmse_threshold` | entrée | `number` | RMSE maximale, en centaines de milliers de $ (défaut : 0.5) |
+| `mape_threshold_pct` | entrée | `number` | MAPE maximale, en % (défaut : 20) |
+| `model_output` | sortie | `mlflow_model` | Modèle accepté, enregistré par Azure ML |
 
 ## Test local
 

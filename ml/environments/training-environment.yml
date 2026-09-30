@@ -23,6 +23,11 @@
 #     --resource-group <rg> --workspace-name <workspace>
 $schema: https://azuremlschemas.azureedge.net/latest/environment.schema.json
 name: ml-project-training-env
-description: "Environnement d'entraînement générique (scikit-learn + MLflow) — TEMPLATE: customize for client"
-image: mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04:latest
+description: "California Housing : pandas, scikit-learn, XGBoost et MLflow, pour les composants data_prep, train, evaluate et register_model."
+# Ubuntu 22.04 : l'image 20.04 n'est plus mise à jour par Microsoft depuis
+# février 2025 (fin du support standard d'Ubuntu 20.04). Tag daté plutôt que
+# :latest, pour que deux enregistrements construisent la même image ; le
+# faire évoluer volontairement (tags : https://mcr.microsoft.com/v2/azureml/
+# openmpi4.1.0-ubuntu22.04/tags/list), puis réenregistrer l'environnement.
+image: mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu22.04:20260929.v1
 conda_file: conda.yml

@@ -1,73 +1,78 @@
-"""Enregistrement conditionnel du modèle dans le Model Registry Azure ML.
+"""Contrôle de qualité avant enregistrement du modèle (gating).
 
-Lit le rapport d'évaluation produit par `evaluate` et n'enregistre le modèle que si sa RMSE est
-inférieure ou égale au seuil fixé (gating). Le seuil par défaut, 0,50, correspond à une erreur
-typique de 50 000 $ sur la valeur médiane d'un district : au-delà, l'estimation n'est plus assez
-fiable pour trier des zones (voir notebooks/01_Exploration.ipynb, introduction).
+Lit le rapport d'évaluation produit par `evaluate` et laisse passer le modèle seulement s'il
+respecte les deux seuils d'acceptabilité fixés dans notebooks/01_Exploration.ipynb
+(introduction) pour un outil de tri de zones :
+- RMSE <= 0,50, soit une erreur typique de 50 000 $ sur la valeur médiane d'un district ;
+- MAPE <= 20 %, soit une estimation en moyenne à moins de 20 % de la valeur réelle.
 
-L'enregistrement utilise le SDK Azure ML v2 (azure-ai-ml) avec les informations d'espace de
-travail injectées automatiquement par Azure ML dans l'environnement du job, et l'identité managée
-du compute pour l'authentification (aucun secret requis).
+Si le modèle passe, il est recopié vers la sortie `model_output`. C'est cette sortie que le
+pipeline (ml/pipelines/training-pipeline.yml) déclare comme modèle nommé : Azure ML l'enregistre
+lui-même dans le registre, à la fin de l'étape. Le composant n'appelle donc pas le SDK Azure ML,
+et l'identité du compute n'a besoin d'aucun rôle Azure (pas de role assignment, donc pas besoin
+d'un Owner du resource group).
+
+Si le modèle échoue, le composant s'arrête en erreur : le pipeline apparaît en échec dans le
+studio, et rien n'est enregistré.
 """
 
 import argparse
 import json
-import os
+import shutil
+import sys
 from pathlib import Path
 
-from azure.ai.ml import MLClient
-from azure.ai.ml.constants import AssetTypes
-from azure.ai.ml.entities import Model
-from azure.identity import DefaultAzureCredential
+TARGET_UNIT_USD = 100_000  # la cible est exprimée en centaines de milliers de dollars
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_input", type=str, required=True)
     parser.add_argument("--evaluation_report", type=str, required=True)
-    parser.add_argument("--model_name", type=str, required=True)
     parser.add_argument("--rmse_threshold", type=float, required=True)
+    parser.add_argument("--mape_threshold_pct", type=float, required=True)
+    parser.add_argument("--model_output", type=str, required=True)
     return parser.parse_args()
+
+
+def check_quality(metrics: dict, rmse_threshold: float, mape_threshold_pct: float) -> list[str]:
+    # Renvoie la liste des seuils non respectés (vide = modèle accepté). Une métrique absente
+    # compte comme un échec : sans elle, je ne peux pas juger la qualité du modèle.
+    failures = []
+    rmse = metrics.get("rmse")
+    if rmse is None or rmse > rmse_threshold:
+        failures.append(
+            f"RMSE {rmse} > seuil {rmse_threshold}"
+            if rmse is not None
+            else "RMSE absente de metrics.json"
+        )
+    mape = metrics.get("mape_pct")
+    if mape is None or mape > mape_threshold_pct:
+        failures.append(
+            f"MAPE {mape:.1f} % > seuil {mape_threshold_pct} %"
+            if mape is not None
+            else "MAPE absente de metrics.json"
+        )
+    return failures
 
 
 def main() -> None:
     args = parse_args()
 
-    metrics_path = Path(args.evaluation_report) / "metrics.json"
-    metrics = json.loads(metrics_path.read_text())
-    # Métrique absente = on ne peut pas juger la qualité du modèle : on refuse par prudence.
-    rmse = metrics.get("rmse", float("inf"))
+    metrics = json.loads((Path(args.evaluation_report) / "metrics.json").read_text())
+    failures = check_quality(metrics, args.rmse_threshold, args.mape_threshold_pct)
+    if failures:
+        print("Modèle REFUSÉ, non enregistré : " + " ; ".join(failures), file=sys.stderr)
+        sys.exit(1)
 
-    if rmse > args.rmse_threshold:
-        print(f"RMSE {rmse:.4f} > seuil {args.rmse_threshold} — modèle NON enregistré.")
-        return
-
-    # TEMPLATE: do not modify unless architecture requires it — ces variables
-    # sont injectées automatiquement par Azure ML dans tout job en cours
-    # d'exécution ; aucune configuration manuelle n'est nécessaire.
-    ml_client = MLClient(
-        credential=DefaultAzureCredential(),
-        subscription_id=os.environ["AZUREML_ARM_SUBSCRIPTION"],
-        resource_group_name=os.environ["AZUREML_ARM_RESOURCEGROUP"],
-        workspace_name=os.environ["AZUREML_ARM_WORKSPACE_NAME"],
+    # Le modèle MLflow est un dossier : je le recopie tel quel vers la sortie, qu'Azure ML
+    # enregistre ensuite sous le nom déclaré dans le pipeline.
+    shutil.copytree(args.model_input, args.model_output, dirs_exist_ok=True)
+    print(
+        f"Modèle ACCEPTÉ : RMSE = {metrics['rmse']:.4f} "
+        f"(environ {metrics['rmse'] * TARGET_UNIT_USD:,.0f} $ d'écart typique), "
+        f"MAPE = {metrics['mape_pct']:.1f} %. Enregistré par Azure ML à la fin de l'étape."
     )
-
-    # Les métriques sont stockées comme propriétés du modèle : on les retrouve dans le registre
-    # sans avoir à rouvrir le run d'évaluation.
-    properties = {k: f"{v:.6g}" for k, v in metrics.items() if isinstance(v, int | float)}
-    model = Model(
-        path=args.model_input,
-        name=args.model_name,
-        type=AssetTypes.MLFLOW_MODEL,
-        description=(
-            f"Estimation de la valeur médiane des logements par district "
-            f"(RMSE={rmse:.4f}, soit environ {rmse * 100_000:,.0f} $ d'écart typique)."
-        ),
-        properties=properties,
-    )
-    registered = ml_client.models.create_or_update(model)
-
-    print(f"Modèle enregistré : {registered.name}, version {registered.version}")
 
 
 if __name__ == "__main__":

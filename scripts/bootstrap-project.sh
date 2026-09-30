@@ -4,10 +4,9 @@ set -euo pipefail
 # Bootstrap projet - Déploiement de bout en bout en une commande
 #
 # Enchaîne toutes les étapes manuelles du Quick Start du README : infra
-# Terraform, création du compute/environnement Azure ML, role assignments
-# requis (AcrPull, AzureML Data Scientist), enregistrement du data asset, et
-# soumission du pipeline d'entraînement (sample tant qu'il n'a pas encore été
-# personnalisé, voir docs/CUSTOMIZATION_GUIDE.md).
+# Terraform, création du compute/environnement Azure ML, accès du compute à
+# l'ACR (AcrPull, seulement si le compte admin de l'ACR est désactivé),
+# enregistrement du data asset, et soumission du pipeline d'entraînement.
 #
 # Objectif : partir d'un `az login` et arriver à un run de pipeline visible
 # dans Azure ML Studio, sans étape manuelle intermédiaire — le premier
@@ -18,6 +17,12 @@ set -euo pipefail
 # Usage :
 #   ./scripts/bootstrap-project.sh [ENV]        (ENV = dev par défaut)
 #   ./scripts/bootstrap-project.sh dev --skip-infra   (réutilise l'infra existante)
+
+# Git Bash (Windows) réécrit tout argument commençant par "/" en chemin
+# Windows : "--scope /subscriptions/..." deviendrait "C:/Program Files/Git/
+# subscriptions/..." et az échouerait (MissingSubscription). Sans effet
+# ailleurs (Linux, macOS, CI).
+export MSYS_NO_PATHCONV=1
 
 ENV="dev"
 SKIP_INFRA="false"
@@ -79,26 +84,37 @@ az ml environment create --file ml/environments/training-environment.yml \
   --resource-group "$RG" --workspace-name "$WORKSPACE" >/dev/null
 echo "✅ Environnement enregistré (nouvelle version si conda.yml a changé)"
 
-step "5/7 — Role assignments du compute (AcrPull, AzureML Data Scientist)"
-COMPUTE_PRINCIPAL_ID=$(az ml compute show --name "$COMPUTE_NAME" \
-  --resource-group "$RG" --workspace-name "$WORKSPACE" \
-  --query identity.principal_id -o tsv)
-ACR_ID=$(az acr show --name "$ACR" --resource-group "$RG" --query id -o tsv)
-WS_ID=$(az ml workspace show --name "$WORKSPACE" --resource-group "$RG" --query id -o tsv)
-
-assign_role() {
-  local role="$1" scope="$2"
+step "5/7 — Accès du compute à l'ACR (images Docker)"
+# Le seul rôle dont le compute peut avoir besoin : register_model n'appelle
+# plus le SDK (l'enregistrement est fait par Azure ML via la sortie nommée du
+# pipeline), donc plus besoin de "AzureML Data Scientist".
+if [[ "$(az acr show --name "$ACR" --resource-group "$RG" --query adminUserEnabled -o tsv)" == "true" ]]; then
+  # Mode sans RBAC (enable_rbac_assignments = false dans les tfvars) : Azure ML
+  # récupère les images avec le compte admin de l'ACR, aucun rôle à attribuer.
+  # Ce mode permet de déployer avec le seul rôle Contributor sur le RG.
+  echo "✅ Compte admin de l'ACR activé : aucun rôle à attribuer"
+else
+  COMPUTE_PRINCIPAL_ID=$(az ml compute show --name "$COMPUTE_NAME" \
+    --resource-group "$RG" --workspace-name "$WORKSPACE" \
+    --query identity.principal_id -o tsv)
+  ACR_ID=$(az acr show --name "$ACR" --resource-group "$RG" --query id -o tsv)
   if az role assignment list --assignee-object-id "$COMPUTE_PRINCIPAL_ID" \
-      --scope "$scope" --query "[?roleDefinitionName=='$role']" -o tsv | grep -q .; then
-    echo "✅ Rôle '$role' déjà assigné"
+      --scope "$ACR_ID" --query "[?roleDefinitionName=='AcrPull']" -o tsv | grep -q .; then
+    echo "✅ Rôle 'AcrPull' déjà assigné"
+  elif az role assignment create --assignee-object-id "$COMPUTE_PRINCIPAL_ID" \
+      --assignee-principal-type ServicePrincipal --role AcrPull --scope "$ACR_ID" >/dev/null; then
+    echo "✅ Rôle 'AcrPull' assigné"
   else
-    az role assignment create --assignee-object-id "$COMPUTE_PRINCIPAL_ID" \
-      --assignee-principal-type ServicePrincipal --role "$role" --scope "$scope" >/dev/null
-    echo "✅ Rôle '$role' assigné"
+    # Attribuer un rôle exige Owner, User Access Administrator ou RBAC
+    # Administrator : sans ce droit, un administrateur doit le faire.
+    echo "❌ Impossible d'attribuer AcrPull (droit Microsoft.Authorization/roleAssignments/write requis)."
+    echo "   Faire lancer par un Owner du resource group :"
+    echo "   az role assignment create --assignee-object-id $COMPUTE_PRINCIPAL_ID \\"
+    echo "     --assignee-principal-type ServicePrincipal --role AcrPull --scope $ACR_ID"
+    echo "   Ou passer en mode sans RBAC : admin_enabled = true dans environments/${ENV}.tfvars."
+    exit 1
   fi
-}
-assign_role "AcrPull" "$ACR_ID"
-assign_role "AzureML Data Scientist" "$WS_ID"
+fi
 
 step "6/7 — Data asset ($DATA_NAME)"
 az ml data create --file ml/data/sample-data-asset.yml \

@@ -1,8 +1,9 @@
-# CD — promotion dev → staging → prod en une seule chaîne, déclenchée après
-# un CI vert sur main (ou manuellement). La progression staging → prod n'est
-# jamais automatique : les environnements GitHub "staging" et "production"
-# doivent avoir une règle d'approbation manuelle (Settings > Environments)
-# qui met le job en pause jusqu'à validation humaine.
+# CD — promotion dev → prod en une seule chaîne, déclenchée après un CI vert
+# sur main (ou manuellement). Deux environnements seulement (pas de staging) :
+# prod n'est déployé qu'après les tests smoke de dev, et jamais
+# automatiquement — l'environnement GitHub "production" doit avoir une règle
+# d'approbation manuelle (Settings > Environments) qui met le job en pause
+# jusqu'à validation humaine.
 #
 # Authentification Azure : OIDC fédéré (azure/login avec client-id/tenant-id/
 # subscription-id) — aucun secret client stocké dans le dépôt ou les secrets
@@ -56,7 +57,7 @@ jobs:
             -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" \
             -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" \
-            -backend-config="key=dev.tfstate" \
+            -backend-config="key=house-price-prediction-dev.tfstate" \
             -backend-config="use_azuread_auth=true"
       - run: terraform apply -auto-approve -var-file=../../environments/dev.tfvars
 
@@ -87,39 +88,9 @@ jobs:
           AZUREML_WORKSPACE_NAME: ${{ vars.DEV_AZUREML_WORKSPACE_NAME }}
           BATCH_ENDPOINT_NAME: ml-project-batch-endpoint
 
-  deploy-staging:
-    name: Déployer — staging
-    needs: validate-dev
-    runs-on: ubuntu-latest
-    # Règle d'approbation manuelle requise sur cet environnement
-    # (Settings > Environments > staging > Required reviewers).
-    environment: staging
-    defaults:
-      run:
-        working-directory: infrastructure/terraform
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - uses: hashicorp/setup-terraform@v3
-
-      - run: |
-          terraform init \
-            -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" \
-            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
-            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" \
-            -backend-config="key=staging.tfstate" \
-            -backend-config="use_azuread_auth=true"
-      - run: terraform apply -auto-approve -var-file=../../environments/staging.tfvars
-
   deploy-prod:
     name: Déployer — production
-    needs: deploy-staging
+    needs: validate-dev
     runs-on: ubuntu-latest
     # Règle d'approbation manuelle requise sur cet environnement
     # (Settings > Environments > production > Required reviewers) —
@@ -144,6 +115,6 @@ jobs:
             -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" \
             -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" \
-            -backend-config="key=prod.tfstate" \
+            -backend-config="key=house-price-prediction-prod.tfstate" \
             -backend-config="use_azuread_auth=true"
       - run: terraform apply -auto-approve -var-file=../../environments/prod.tfvars

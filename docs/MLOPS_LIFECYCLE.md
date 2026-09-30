@@ -35,29 +35,31 @@ doivent pas être fusionnées** dans un composant unique :
 
 Le modèle est journalisé au format **MLflow** dès l'entraînement
 (`mlflow.sklearn.save_model` dans `components/train/src/main.py`), puis
-enregistré dans le **Model Registry Azure ML** par `register_model`
-**uniquement si** sa métrique dépasse un seuil configurable — c'est le
-mécanisme recommandé par Microsoft (voir
-[how-to-manage-models](https://learn.microsoft.com/azure/machine-learning/how-to-manage-models)).
+enregistré dans le **Model Registry Azure ML** **uniquement si** sa RMSE et
+sa MAPE respectent les seuils du pipeline : `register_model` fait le
+contrôle et échoue sinon, et Azure ML enregistre lui-même la sortie nommée
+du pipeline (`house-price-model`) quand le contrôle réussit (voir
+[how-to-manage-inputs-outputs-pipeline](https://learn.microsoft.com/azure/machine-learning/how-to-manage-inputs-outputs-pipeline)).
 
 Chaque version de modèle enregistrée doit rester traçable jusqu'à :
 
-- la version du run et ses métriques (MLflow, automatique) ;
+- le run de pipeline qui l'a produite, et les métriques de son étape
+  `evaluate` (lien automatique entre le modèle et son job) ;
 - la version du jeu de données utilisé (`ml/data/*.yml`, versionné) ;
 - l'environnement d'exécution (`environment:` du composant `train`) ;
-- le commit Git du code (à ajouter en `properties` du modèle — voir
-  `components/register_model/src/main.py`, `TEMPLATE: customize for client`).
+- le commit Git du code (enregistré automatiquement par Azure ML sur le job
+  quand il est soumis depuis un dépôt Git).
 
 **Aucun binaire de modèle n'est commité dans Git.** Le Model Registry Azure
 ML est la seule source de vérité pour les artefacts de modèle.
 
-## Environnements dev → staging → prod
+## Environnements dev → prod
 
 Un déploiement d'application (ex: nouvelle version d'un composant, correctif
 de pipeline) **ne force jamais un réentraînement**. Ce sont deux cycles
 indépendants :
 
-- **Cycle infrastructure/code** : `environments/{dev,staging,prod}.tfvars` +
+- **Cycle infrastructure/code** : `environments/{dev,prod}.tfvars` +
   `.github/workflows/cd.yml` — promeut le code et l'infrastructure.
 - **Cycle modèle** : soumission de `ml/pipelines/training-pipeline.yml` —
   déclenchée manuellement, sur planification, ou sur dérive de données/
@@ -74,10 +76,11 @@ PR → CI (lint, tests, validation YAML/Terraform, scan secrets)
    → merge main
    → déploiement DEV (automatique)
    → validation (tests smoke)
-   → promotion STAGING (approbation manuelle requise)
    → promotion PROD (approbation manuelle requise)
 ```
 
+Deux environnements seulement : pas de staging (`staging.tfvars` reste
+disponible si un client en a besoin, mais n'est pas déployé par la CD).
 Voir `.github/workflows/cd.yml`. La CI (`.github/workflows/ci.yml`) ne
 déploie jamais — elle valide uniquement.
 

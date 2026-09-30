@@ -28,7 +28,7 @@ section indique le(s) fichier(s) à modifier et ce qu'il faut y mettre.
 | 17 | Réseau (optionnel) | `docs/SECURITY.md` |
 | 18 | Monitoring | `infrastructure/terraform/application_insights.tf` |
 | 19 | CI/CD (secrets, environnements GitHub) | `.github/workflows/`, Settings GitHub |
-| 20 | Stratégie de promotion dev→staging→prod | `docs/MLOPS_LIFECYCLE.md`, `environments/` |
+| 20 | Stratégie de promotion dev→prod | `docs/MLOPS_LIFECYCLE.md`, `environments/` |
 | 21 | State Terraform distant | `make bootstrap-tfstate`, `environments/backend-*.hcl` |
 
 ---
@@ -115,10 +115,11 @@ neurones, etc.) et ses hyperparamètres. Conserver le format de sortie
 
 ## 11. Métriques
 
-`components/evaluate/src/main.py` — remplacer `accuracy`/`f1_score` par les
-métriques pertinentes pour le cas d'usage (AUC, RMSE, précision/rappel par
-classe, métriques métier). Mettre à jour en conséquence le seuil de gating
-dans `components/register_model/component.yml` (`accuracy_threshold`).
+`components/evaluate/src/main.py` — RMSE, MAE, MAPE et R² (traduits en
+dollars), erreur séparée sur les districts plafonnés et importance par
+permutation. Les seuils de gating (`rmse_threshold`, `mape_threshold_pct`)
+se règlent dans `ml/pipelines/training-pipeline.yml` et sont appliqués par
+`components/register_model`.
 
 ## 12. Compute
 
@@ -203,11 +204,10 @@ supplémentaire requise pour un monitoring de base.
   smoke de l'endpoint batch (ignorés tant qu'elles ne sont pas définies).
   L'identité OIDC doit pouvoir invoquer l'endpoint (rôle
   AzureML Data Scientist sur le workspace dev).
-- Environnements GitHub à créer (Settings > Environments) : `dev`,
-  `staging` (règle d'approbation recommandée), `production` (règle
-  d'approbation **requise**).
+- Environnements GitHub à créer (Settings > Environments) : `dev` et
+  `production` (règle d'approbation **requise**). Pas de staging.
 
-## 20. Stratégie de promotion dev → staging → prod
+## 20. Stratégie de promotion dev → prod
 
 Décrite dans [docs/MLOPS_LIFECYCLE.md](MLOPS_LIFECYCLE.md). Points à valider
 avec le client : fréquence de réentraînement, critère de promotion d'un

@@ -247,32 +247,34 @@ UserError: Failed to pull Docker image <acr>.azurecr.io/azureml/... This
 error may occur because the compute could not authenticate with the
 Docker registry to pull the image.
 ```
-**Cause :** le Container Registry de ce starter kit a l'admin user
-désactivé (`admin_enabled = false`, voir `docs/SECURITY.md`). Dans ce cas,
-AmlCompute pull les images avec **sa propre identité managée**, pas celle
-du workspace — un `AcrPull` accordé uniquement à l'identité du workspace
-ne suffit pas (constaté sur un test réel malgré un RBAC workspace→ACR
+**Cause :** en mode RBAC, le Container Registry a l'admin user désactivé
+(`admin_enabled = false`, voir `docs/SECURITY.md`). Dans ce cas, AmlCompute
+pull les images avec **sa propre identité managée**, pas celle du
+workspace — un `AcrPull` accordé uniquement à l'identité du workspace ne
+suffit pas (constaté sur un test réel malgré un RBAC workspace→ACR
 correctement propagé). **Solution :** `ml/compute/compute-cluster.yml`
 déclare `identity: {type: system_assigned}` ; après création du compute,
-accorder `AcrPull` à son identité (voir README — Quick Start, section
-"Assets Azure ML"). Ne **jamais** activer `admin_enabled` sur l'ACR comme
-contournement (violerait la posture de sécurité documentée).
+accorder `AcrPull` à son identité (fait par `scripts/bootstrap-project.sh`
+si tu as le droit d'attribuer des rôles, sinon par un Owner). Sans Owner
+disponible, le mode sans RBAC (`admin_enabled = true`, voir
+`docs/SECURITY.md`) évite ce rôle, au prix d'identifiants partagés.
 
-### "AuthorizationFailed" sur `models/versions/read` dans register_model
+### "AuthorizationFailed" sur `roleAssignments/write` dans bootstrap-project
 ```
-azure.core.exceptions.HttpResponseError: (AuthorizationFailed) The client
-'...' with object id '<principal_id du compute>' does not have
-authorization to perform action
-'Microsoft.MachineLearningServices/workspaces/models/versions/read'
+(AuthorizationFailed) The client '...' does not have authorization to
+perform action 'Microsoft.Authorization/roleAssignments/write'
 ```
-**Cause :** une fois l'identité propre du compute créée (voir bug
-ci-dessus), c'est **cette identité** — pas celle du workspace — qui est
-utilisée par le SDK `azure-ai-ml` (`MLClient`) appelé depuis le code des
-composants (ex. `register_model_job` → `ml_client.models.create_or_update`).
-`AcrPull` seul ne couvre pas les appels au plan de contrôle Azure ML.
-**Solution :** accorder également le rôle `AzureML Data Scientist` à
-l'identité du compute, à la portée du workspace (voir README — Quick
-Start, section "Assets Azure ML").
+**Cause :** attribuer un rôle Azure exige Owner, User Access Administrator
+ou RBAC Administrator ; Contributor ne suffit pas. **Solution :** rester en
+mode sans RBAC (configuration actuelle de dev et prod, aucun rôle à
+attribuer), ou faire attribuer le rôle par un Owner (commande exacte
+affichée par le script).
+
+### "MissingSubscription" sur `az role assignment` depuis Git Bash
+**Cause :** Git Bash (Windows) réécrit `--scope /subscriptions/...` en
+chemin Windows. **Solution :** `export MSYS_NO_PATHCONV=1` (déjà fait en
+tête de `scripts/bootstrap-project.sh`), ou utiliser la version PowerShell
+du script.
 
 ### "ImportError: cannot import name '_T' from 'marshmallow.fields'" dans un job Azure ML
 ```

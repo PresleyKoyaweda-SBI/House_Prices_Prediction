@@ -15,12 +15,28 @@ exécution, OIDC fédéré en CI/CD, compte utilisateur (`az login`) en local.
 | Managed Identity du ML Workspace | Storage Account | `Storage Blob Data Contributor` | `machine_learning_workspace.tf` |
 | Managed Identity du ML Workspace | Container Registry | `AcrPull` | `machine_learning_workspace.tf` |
 | Managed Identity du ML Workspace | Key Vault | `Key Vault Secrets User` | `machine_learning_workspace.tf` |
-| Compute Azure ML (composants) | Workspace (via `AZUREML_ARM_*`) | Enregistrement de modèle | `components/register_model/src/main.py` |
+| Managed Identity du compute (`cpu-cluster`) | Container Registry | `AcrPull` (mode RBAC seulement) | `scripts/bootstrap-project.sh` |
+
+Ces rôles ne sont créés qu'avec `enable_rbac_assignments = true`, qui exige
+Owner, User Access Administrator ou RBAC Administrator sur le resource
+group. Aucun composant n'appelle le SDK Azure ML : `register_model` laisse
+Azure ML enregistrer le modèle via la sortie nommée du pipeline, et le
+compute n'a besoin d'aucun rôle sur le workspace.
 
 Least privilege : chaque identité ne reçoit que les rôles strictement
 nécessaires à son usage. `container_registry_config.admin_enabled` est à
-`false` par défaut (`variables.tf`) — les identifiants admin ACR ne sont
-activés que si un outil tiers l'exige explicitement (`docker login`).
+`false` par défaut (`variables.tf`).
+
+**Mode sans RBAC (configuration actuelle de dev et prod).** Sans Owner sur
+le resource group, `enable_rbac_assignments = false` : aucun rôle n'est
+créé, le Key Vault passe en access policies, et l'ACR active son compte
+admin (`admin_enabled = true`) pour qu'Azure ML puisse récupérer ses images.
+C'est un compromis assumé pour avancer avec le seul rôle Contributor : les
+identifiants admin sont stockés par Azure ML dans le Key Vault du workspace,
+mais ce sont des identifiants partagés, sans traçabilité par identité. Pour
+la production définitive, repasser en mode RBAC
+(`enable_rbac_assignments = true`, `admin_enabled = false`) dès que les
+rôles peuvent être attribués.
 
 ## Groupe de ressources auto-géré (`ai_..._managed`)
 
@@ -119,15 +135,15 @@ Avant un premier déploiement en production pour un client, vérifier :
 
 - [ ] Aucun secret dans l'historique Git (`git log -p` sur les fichiers
       `.tfvars`, `.env*`) ;
-- [ ] `admin_enabled` du Container Registry toujours à `false`, sauf besoin
-      documenté ;
+- [ ] `admin_enabled` du Container Registry à `false` (mode RBAC), sauf mode
+      sans RBAC documenté ci-dessus ;
 - [ ] `auth_mode` des endpoints conforme aux exigences du client ;
-- [ ] Environnements GitHub `staging`/`production` protégés par une règle
+- [ ] Environnement GitHub `production` protégé par une règle
       d'approbation manuelle ;
 - [ ] Fédération OIDC configurée (pas de secret Azure statique dans les
       secrets GitHub) ;
 - [ ] Réseau/CMK activés uniquement si explicitement requis (voir
       ci-dessus) ;
 - [ ] State Terraform sur backend distant (jamais local) avant tout
-      déploiement staging/prod, RBAC `Storage Blob Data Contributor`
+      déploiement prod, RBAC `Storage Blob Data Contributor`
       accordé uniquement aux identités qui en ont besoin.
