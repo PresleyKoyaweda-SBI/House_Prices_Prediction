@@ -67,7 +67,9 @@ function Assert-LastCommand($what) {
 
 $DataName = Get-YamlValue "name" $DataFile
 $DataVersion = Get-YamlValue "version" $DataFile
-$EndpointName = Get-YamlValue "name" $EndpointFile
+# Un endpoint par environnement : son nom doit être unique dans toute la
+# région Azure (il forme l'adresse d'appel), dev et prod ne peuvent pas le partager.
+$EndpointName = "$(Get-YamlValue "name" $EndpointFile)-$Env"
 # Le modèle déployé est "azureml:<nom>@latest" dans batch-deployment.yml.
 $ModelName = (Get-YamlValue "model" $DeploymentFile) -replace '^azureml:', '' -replace '[@:].*$', ''
 
@@ -231,13 +233,13 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "✅ Endpoint déjà existant"
 }
 else {
-    az ml batch-endpoint create --file $EndpointFile @AzWs | Out-Null
+    az ml batch-endpoint create --file $EndpointFile --name $EndpointName @AzWs | Out-Null
     Assert-LastCommand "création de l'endpoint batch"
     Write-Host "✅ Endpoint créé"
 }
 # Le déploiement référence "@latest" : il prend la version enregistrée à
 # l'étape 8. Relancer create met à jour le déploiement existant.
-az ml batch-deployment create --file $DeploymentFile @AzWs --set-default | Out-Null
+az ml batch-deployment create --file $DeploymentFile --endpoint-name $EndpointName @AzWs --set-default | Out-Null
 Assert-LastCommand "déploiement batch"
 Write-Host "✅ Déploiement à jour : $ModelName version $ModelVersion"
 

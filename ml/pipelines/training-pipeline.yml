@@ -13,6 +13,12 @@
 $schema: https://azuremlschemas.azureedge.net/latest/pipelineJob.schema.json
 type: pipeline
 display_name: training-pipeline
+# Nom d'expérience fixe : sans lui, Azure ML prend le nom du dossier d'où le
+# pipeline est soumis, et les runs se répartissent entre plusieurs
+# expériences (constaté : "House_Prices_Prediction" pour la CD GitHub,
+# "House_Prices_Prediction_-R-gression-" depuis le poste). Avec un nom fixe,
+# tous les entraînements sont regroupés au même endroit dans le studio.
+experiment_name: house-price-training
 description: "Pipeline d'entraînement de bout en bout — valeur médiane des logements par district (California Housing)."
 
 # Compute par défaut du pipeline (voir ml/compute/compute-cluster.yml). Je

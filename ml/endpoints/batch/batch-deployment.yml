@@ -7,7 +7,9 @@
 #     --resource-group <rg> --workspace-name <workspace> --set-default
 $schema: https://azuremlschemas.azureedge.net/latest/modelBatchDeployment.schema.json
 name: ml-project-batch-deployment
-endpoint_name: ml-project-batch-endpoint
+# Remplacé par house-price-batch-<env> par scripts/bootstrap-project.sh
+# (--endpoint-name), voir batch-endpoint.yml.
+endpoint_name: house-price-batch
 # Déploiement d'un modèle enregistré (format MLflow : aucun script de scoring
 # ni environnement à fournir, Azure ML les déduit du modèle).
 type: model
