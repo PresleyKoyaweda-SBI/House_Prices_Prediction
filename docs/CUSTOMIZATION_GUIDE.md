@@ -203,14 +203,23 @@ enregistrement du modèle, déploiement batch et test smoke. Authentification pa
    environnement GitHub.
    ```bash
    export MSYS_NO_PATHCONV=1
-   RG=<resource group>; REPO=<organisation>/<repo>
+   RG=<resource group>
+   # Sujet exact envoyé par GitHub : le lire dans le log de l'étape azure/login
+   # d'un premier run ("subject claim - repo:..."). GitHub y inclut désormais les
+   # identifiants numériques du compte et du repo, ex. :
+   #   repo:<compte>@<id compte>/<repo>@<id repo>:environment:dev
+   REPO_SUBJECT="<compte>@<id compte>/<repo>@<id repo>"
    az identity create --name id-github-cd -g $RG
    for ENVNAME in dev production; do
      az identity federated-credential create --identity-name id-github-cd -g $RG \
        --name "github-$ENVNAME" --issuer https://token.actions.githubusercontent.com \
-       --subject "repo:$REPO:environment:$ENVNAME" --audiences api://AzureADTokenExchange
+       --subject "repo:$REPO_SUBJECT:environment:$ENVNAME" --audiences api://AzureADTokenExchange
    done
    ```
+   Diagnostic de la connexion (étape `azure/login` de la CD) :
+   `AADSTS700213` = le sujet ne correspond pas (comparer avec la ligne
+   `subject claim` du log) ; `No subscriptions found` = authentification
+   réussie, mais l'identité n'a pas encore de rôle (étape 2).
 2. **Rôle de l'identité** (exige un Owner, une seule fois) : **Contributor** sur
    le resource group, et rien d'autre. Terraform ne crée aucun role assignment
    (mode sans RBAC), et le state est lu par la clé du storage.

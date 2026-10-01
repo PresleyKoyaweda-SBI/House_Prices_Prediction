@@ -51,7 +51,9 @@ DEPLOYMENT_FILE="ml/endpoints/batch/batch-deployment.yml"
 yaml_value() { sed -n "s/^$1: *//p" "$2" | head -1 | tr -d '\r'; }
 DATA_NAME=$(yaml_value name "$DATA_FILE")
 DATA_VERSION=$(yaml_value version "$DATA_FILE")
-ENDPOINT_NAME=$(yaml_value name "$ENDPOINT_FILE")
+# Un endpoint par environnement : son nom doit être unique dans toute la
+# région Azure (il forme l'adresse d'appel), dev et prod ne peuvent pas le partager.
+ENDPOINT_NAME="$(yaml_value name "$ENDPOINT_FILE")-${ENV}"
 # Le modèle déployé est "azureml:<nom>@latest" dans batch-deployment.yml.
 MODEL_NAME=$(yaml_value model "$DEPLOYMENT_FILE" | sed 's/^azureml://; s/[@:].*//')
 
@@ -195,12 +197,13 @@ step "9/9 — Déploiement sur l'endpoint batch ($ENDPOINT_NAME)"
 if az ml batch-endpoint show --name "$ENDPOINT_NAME" "${AZ_WS[@]}" >/dev/null 2>&1; then
   echo "✅ Endpoint déjà existant"
 else
-  az ml batch-endpoint create --file "$ENDPOINT_FILE" "${AZ_WS[@]}" >/dev/null
+  az ml batch-endpoint create --file "$ENDPOINT_FILE" --name "$ENDPOINT_NAME" "${AZ_WS[@]}" >/dev/null
   echo "✅ Endpoint créé"
 fi
 # Le déploiement référence "@latest" : il prend la version enregistrée à
 # l'étape 8. Relancer create met à jour le déploiement existant.
-az ml batch-deployment create --file "$DEPLOYMENT_FILE" "${AZ_WS[@]}" --set-default >/dev/null
+az ml batch-deployment create --file "$DEPLOYMENT_FILE" --endpoint-name "$ENDPOINT_NAME" \
+  "${AZ_WS[@]}" --set-default >/dev/null
 echo "✅ Déploiement à jour : $MODEL_NAME version $MODEL_VERSION"
 
 echo ""

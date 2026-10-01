@@ -73,8 +73,10 @@ jobs:
           use_azuread_auth     = false
           EOF
 
+      # Lancé par bash plutôt que directement : ne dépend pas du bit
+      # d'exécution, qu'un commit fait depuis Windows ne conserve pas toujours.
       - name: Infra, entraînement, enregistrement et déploiement
-        run: ./scripts/bootstrap-project.sh "${{ inputs.tf_env }}"
+        run: bash scripts/bootstrap-project.sh "${{ inputs.tf_env }}"
 
       - uses: actions/setup-python@v5
         with:
@@ -88,7 +90,8 @@ jobs:
         run: |
           export AZURE_RESOURCE_GROUP=$(terraform -chdir=infrastructure/terraform output -raw resource_group_name)
           export AZUREML_WORKSPACE_NAME=$(terraform -chdir=infrastructure/terraform output -raw workspace_name)
-          export BATCH_ENDPOINT_NAME=$(sed -n 's/^name: *//p' ml/endpoints/batch/batch-endpoint.yml | tr -d '\r')
+          # Même convention que scripts/bootstrap-project.sh : <nom de base>-<env>.
+          export BATCH_ENDPOINT_NAME="$(sed -n 's/^name: *//p' ml/endpoints/batch/batch-endpoint.yml | tr -d '\r')-${{ inputs.tf_env }}"
           python -m pytest tests/smoke/ -v
         env:
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}

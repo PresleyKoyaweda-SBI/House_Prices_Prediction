@@ -12,7 +12,7 @@ cpu-cluster, qui redescend à zéro entre deux utilisations).
 Exécution (après déploiement, ex: étape de validation dev dans
 .github/workflows/cd.yml), avec une session `az login` active :
     AZURE_SUBSCRIPTION_ID=... AZURE_RESOURCE_GROUP=... \
-    AZUREML_WORKSPACE_NAME=... BATCH_ENDPOINT_NAME=ml-project-batch-endpoint \
+    AZUREML_WORKSPACE_NAME=... BATCH_ENDPOINT_NAME=house-price-batch-dev \
     pytest tests/smoke/
 """
 
